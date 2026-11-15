@@ -3,8 +3,16 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "check": "node scripts/check-structure.mjs"
+    "check": "node scripts/check-structure.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "next>postcss": "^8.5.33"
+    }
   }
 }

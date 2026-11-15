@@ -104,6 +104,7 @@ test('deleting an account: sessions end, it can be cancelled, and it is erased a
   await p3.goto('/app/privacy');
   await p3.getByLabel(/Escribe tu correo/).fill(email);
   await p3.getByRole('button', { name: 'Eliminar mi cuenta' }).click();
+  await expect(p3).toHaveURL(/localhost:3100\/$/); // the request finished before the context is closed
   await third.close();
   const result = await purgeDueAccounts(db, new Date(Date.now() + DELETION_GRACE_MS + 60_000));
   expect(result.purged.map((p) => p.email)).toContain(email);
