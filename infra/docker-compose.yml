@@ -51,8 +51,21 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  backup:
+    # Daily dump plus a restore check. For real protection set BACKUP_S3_URI to an off-site bucket: a backup on the same disk is not a disaster-recovery plan.
+    build:
+      context: ..
+      dockerfile: infra/backup/Dockerfile
+    environment:
+      DATABASE_URL: postgres://factory:factory@db:5432/factory
+      BACKUP_RETENTION_DAYS: "14"
+    volumes: ["backups:/backups"]
+    depends_on:
+      db:
+        condition: service_healthy
   mail:
     image: axllent/mailpit:v1.21
     ports: ["8025:8025"]
 volumes:
   dbdata:
+  backups:
