@@ -43,6 +43,13 @@
       "when": 1794755427653,
       "tag": "0005_unusual_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794758658382,
+      "tag": "0006_jittery_nightcrawler",
+      "breakpoints": true
     }
   ]
 }
