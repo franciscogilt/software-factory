@@ -20,3 +20,4 @@ export * from './admin';
 export type AnyPgDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 export * from './rate-limit';
 export * from './reports';
+export * from './privacy';

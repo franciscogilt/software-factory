@@ -1,6 +1,7 @@
 import { createDb } from '@factory/db';
 import { createEmailHandler, EMAIL_JOB } from './email';
 import { runMonitor } from './monitor';
+import { purgeAndNotify } from './purge';
 import { runOnce } from './runner';
 
 const url = process.env.DATABASE_URL;
@@ -14,6 +15,7 @@ const handlers = { [EMAIL_JOB]: createEmailHandler({ from, transport: server }) 
 const alertEmail = process.env.ALERT_EMAIL;
 if (!alertEmail) console.warn('ALERT_EMAIL is not set: alerts are disabled');
 let lastMonitor = 0;
+let lastPurge = 0;
 let stop = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { stop = true; });
 
@@ -22,6 +24,10 @@ while (!stop) {
   if (alertEmail && Date.now() - lastMonitor >= 60_000) {
     lastMonitor = Date.now();
     await runMonitor(db, { alertEmail }).catch((error) => console.error('monitor failed', error instanceof Error ? error.message : error));
+  }
+  if (Date.now() - lastPurge >= 3_600_000) {
+    lastPurge = Date.now();
+    await purgeAndNotify(db).catch((error) => console.error('purge failed', error instanceof Error ? error.message : error));
   }
   const result = await runOnce(db, handlers);
   if (result === 'idle') await new Promise((r) => setTimeout(r, 2000));

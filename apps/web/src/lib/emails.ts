@@ -19,3 +19,14 @@ export function twoStepResetEmail(): { subject: string; text: string } {
     ].join('\n\n---\n\n'),
   };
 }
+
+export function deletionScheduledEmail(date: string): { subject: string; text: string } {
+  return {
+    subject: 'Tu cuenta se eliminará / Your account will be deleted',
+    text: [
+      `Pediste eliminar tu cuenta. Se eliminará por completo el ${date}. Si no fuiste tú, o cambiaste de opinión, inicia sesión antes de esa fecha y cancela la eliminación.`,
+      `You asked to delete your account. It will be fully deleted on ${date}. If it was not you, or you changed your mind, sign in before that date and cancel the deletion.`,
+    ].join('\n\n---\n\n'),
+  };
+}
+

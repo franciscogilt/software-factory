@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { I18nProvider } from '@/i18n/provider';
+import { CookieNotice } from '@/i18n/cookie-notice';
 import { LanguageSwitcher } from '@/i18n/language-switcher';
 import { getT } from '@/i18n/server';
 
@@ -20,6 +21,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <I18nProvider locale={locale}>
           <header><LanguageSwitcher /></header>
           {children}
+          <CookieNotice />
         </I18nProvider>
       </body>
     </html>

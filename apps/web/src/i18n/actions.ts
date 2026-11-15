@@ -11,3 +11,8 @@ export async function setLocale(data: FormData): Promise<void> {
   (await cookies()).set(LOCALE_COOKIE, value, { path: '/', maxAge: 365 * 24 * 3600, sameSite: 'lax', httpOnly: true, secure: process.env.NODE_ENV === 'production' });
   revalidatePath('/', 'layout');
 }
+
+export async function dismissCookieNotice(): Promise<void> {
+  (await cookies()).set('cookie_notice', '1', { path: '/', maxAge: 365 * 24 * 3600, sameSite: 'lax', httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+  revalidatePath('/', 'layout');
+}
