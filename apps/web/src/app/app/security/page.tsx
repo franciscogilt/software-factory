@@ -2,6 +2,7 @@ import { mfaSessions, userTotp } from '@factory/db';
 import { eq } from 'drizzle-orm';
 import QRCode from 'qrcode';
 import { redirect } from 'next/navigation';
+import { getT } from '@/i18n/server';
 import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/guard';
 import { decryptSecret, otpauthUri } from '@/lib/mfa';
@@ -15,11 +16,12 @@ export default async function SecurityPage() {
   const session = await auth();
   const token = await getSessionToken();
   if (!session?.user?.id || !token) redirect('/login');
+  const { t } = await getT();
   const db = getDb();
   const [totp] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
   const [verified] = await db.select().from(mfaSessions).where(eq(mfaSessions.sessionToken, token));
 
-  if (verified) return <main><h1>Verificación en dos pasos</h1><p>Esta sesión está verificada.</p><RegenerateForm /></main>;
+  if (verified) return <main><h1>{t('security.title')}</h1><p>{t('security.verified')}</p><RegenerateForm /></main>;
 
   const pending = totp && !totp.confirmedAt;
   const qr = pending
@@ -28,15 +30,15 @@ export default async function SecurityPage() {
 
   return (
     <main>
-      <h1>Verificación en dos pasos</h1>
+      <h1>{t('security.title')}</h1>
       {!totp && (
         <form action={beginEnrollment}>
-          <p>Protege tu cuenta con una app de autenticación.</p>
-          <button type="submit">Activar</button>
+          <p>{t('security.protect')}</p>
+          <button type="submit">{t('security.enable')}</button>
         </form>
       )}
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimize */}
-      {qr && <img src={qr} alt="Código QR para tu app de autenticación" width={200} height={200} />}
+      {qr && <img src={qr} alt={t('security.qrAlt')} width={200} height={200} />}
       {totp && <CodeForm />}
       {totp?.confirmedAt && <RecoveryForm />}
     </main>

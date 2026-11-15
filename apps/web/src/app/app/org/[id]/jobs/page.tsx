@@ -1,5 +1,6 @@
 import { listDead, queueStats } from '@factory/jobs';
 import { redirect } from 'next/navigation';
+import { getT } from '@/i18n/server';
 import { getDb, requireOrgRole } from '@/lib/guard';
 import { retryJob } from '../actions';
 
@@ -13,14 +14,15 @@ export default async function JobsPage({ params }: { params: Promise<{ id: strin
   if (!UUID.test(id)) redirect('/app');
   const result = await requireOrgRole(id, 'admin');
   if (!result.allowed) redirect(result.reason === 'mfa_required' ? '/app/security' : '/app');
+  const { t } = await getT();
   const [dead, stats] = await Promise.all([listDead(getDb(), id), queueStats(getDb())]);
   return (
     <main>
-      <h1>Trabajos en segundo plano</h1>
-      <p>En cola: {stats.queued}. En ejecución: {stats.running}. Fallidos en todo el sistema: {stats.dead}.</p>
-      {dead.length === 0 ? <p>No hay trabajos fallidos en esta organización.</p> : (
+      <h1>{t('jobs.title')}</h1>
+      <p>{t('jobs.stats', { queued: stats.queued, running: stats.running, dead: stats.dead })}</p>
+      {dead.length === 0 ? <p>{t('jobs.empty')}</p> : (
         <table>
-          <thead><tr><th>Tipo</th><th>Intentos</th><th>Último error</th><th>Acción</th></tr></thead>
+          <thead><tr><th>{t('jobs.colType')}</th><th>{t('jobs.colAttempts')}</th><th>{t('jobs.colError')}</th><th>{t('jobs.colAction')}</th></tr></thead>
           <tbody>
             {dead.map((j) => (
               <tr key={j.id}>
@@ -28,7 +30,7 @@ export default async function JobsPage({ params }: { params: Promise<{ id: strin
                 <td>
                   <form action={retryJob.bind(null, id)}>
                     <input type="hidden" name="jobId" value={j.id} />
-                    <button type="submit">Reintentar</button>
+                    <button type="submit">{t('jobs.retry')}</button>
                   </form>
                 </td>
               </tr>

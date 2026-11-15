@@ -21,6 +21,7 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
   use: {
     baseURL: 'http://localhost:3100',
+    locale: 'es-DO', // the interface follows the browser language; tests assert Spanish unless they switch
     channel: process.env.CI ? undefined : 'chrome',
     trace: 'retain-on-failure',
   },

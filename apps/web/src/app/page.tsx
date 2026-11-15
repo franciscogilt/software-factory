@@ -1,8 +1,11 @@
-export default function Home() {
+import { getT } from '@/i18n/server';
+
+export default async function Home() {
+  const { t } = await getT();
   return (
     <main>
-      <h1>Software Factory</h1>
-      <p>Base del starter kit. Aún sin funciones de producto.</p>
+      <h1>{t('common.appName')}</h1>
+      <p>{t('home.intro')}</p>
     </main>
   );
 }
