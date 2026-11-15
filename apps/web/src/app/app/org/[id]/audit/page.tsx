@@ -2,16 +2,12 @@ import { listAudit } from '@factory/db';
 import { redirect } from 'next/navigation';
 import { formatDateTime, formatSettings } from '@/i18n/format';
 import { getT } from '@/i18n/server';
+import { parseDay } from '@/lib/dates';
 import { getDb, requireOrgRole } from '@/lib/guard';
 
 export const dynamic = 'force-dynamic';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function parseDate(value: string | undefined, endOfDay: boolean): Date | undefined {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
-  return new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`);
-}
 
 export default async function AuditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string; to?: string }> }) {
   const { id } = await params;
@@ -21,7 +17,7 @@ export default async function AuditPage({ params, searchParams }: { params: Prom
   if (!result.allowed) redirect(result.reason === 'mfa_required' ? '/app/security' : '/app');
   const { t, locale } = await getT();
   const { timeZone } = formatSettings();
-  const rows = await listAudit(getDb(), { organizationId: id, from: parseDate(from, false), to: parseDate(to, true) });
+  const rows = await listAudit(getDb(), { organizationId: id, from: parseDay(from, false), to: parseDay(to, true) });
   return (
     <main>
       <h1>{t('audit.title')}</h1>
