@@ -15,6 +15,13 @@
       "when": 1794748960550,
       "tag": "0001_same_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794750751366,
+      "tag": "0002_square_triathlon",
+      "breakpoints": true
     }
   ]
 }

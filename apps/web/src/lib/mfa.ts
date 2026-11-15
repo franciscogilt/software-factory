@@ -33,11 +33,15 @@ export function otpauthUri(secret: string, accountEmail: string, issuer = 'Softw
   return authenticator.keyuri(accountEmail, issuer, secret);
 }
 
-export function checkTotp(secretEncrypted: string, code: string, base64Key: string): boolean {
-  if (!/^\d{6}$/.test(code)) return false;
+const STEP_SECONDS = 30;
+
+// Returns the accepted time step (so the database can reject a replay), or null if the code is wrong.
+export function checkTotp(secretEncrypted: string, code: string, base64Key: string, nowMs: number = Date.now()): number | null {
+  if (!/^\d{6}$/.test(code)) return null;
   try {
-    return authenticator.check(code, decryptSecret(secretEncrypted, base64Key));
+    const delta = authenticator.checkDelta(code, decryptSecret(secretEncrypted, base64Key));
+    return delta === null ? null : Math.floor(nowMs / 1000 / STEP_SECONDS) + delta;
   } catch {
-    return false;
+    return null;
   }
 }
