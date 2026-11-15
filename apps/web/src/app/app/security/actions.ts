@@ -1,0 +1,63 @@
+'use server';
+
+import { createRecoveryCodes, redeemRecoveryCode, userTotp, verifySecondStep } from '@factory/db';
+import { eq } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
+import { auth } from '@/lib/auth';
+import { getDb } from '@/lib/guard';
+import { checkTotp, encryptSecret, newTotpSecret } from '@/lib/mfa';
+import { getSessionToken } from '@/lib/session-token';
+
+function key(): string {
+  const k = process.env.MFA_ENCRYPTION_KEY;
+  if (!k) throw new Error('MFA_ENCRYPTION_KEY is required');
+  return k;
+}
+
+export type CodesState = { codes: string[] } | { error: string } | null;
+
+export async function beginEnrollment(): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) return;
+  const db = getDb();
+  const [existing] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
+  if (existing?.confirmedAt) return; // never replace a confirmed secret from this action
+  const secretEncrypted = encryptSecret(newTotpSecret(), key());
+  await db.insert(userTotp).values({ userId: session.user.id, secretEncrypted }).onConflictDoUpdate({ target: userTotp.userId, set: { secretEncrypted } });
+  revalidatePath('/app/security');
+}
+
+// First successful verification confirms the enrollment and shows the recovery codes once.
+export async function submitCode(_prev: CodesState, data: FormData): Promise<CodesState> {
+  const session = await auth();
+  const token = await getSessionToken();
+  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  const db = getDb();
+  const [before] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
+  const outcome = await verifySecondStep(db, { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') }, (stored, code) => checkTotp(stored, code, key()));
+  revalidatePath('/app/security');
+  if (outcome === 'verified') return before && !before.confirmedAt ? { codes: await createRecoveryCodes(db, session.user.id) } : null;
+  return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código incorrecto o ya usado.' };
+}
+
+export async function submitRecoveryCode(_prev: CodesState, data: FormData): Promise<CodesState> {
+  const session = await auth();
+  const token = await getSessionToken();
+  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  const outcome = await redeemRecoveryCode(getDb(), { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') });
+  revalidatePath('/app/security');
+  if (outcome === 'verified') return null;
+  return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código de recuperación incorrecto o ya usado.' };
+}
+
+// Only from a session already verified in two steps. Old codes stop working.
+export async function regenerateRecoveryCodes(): Promise<CodesState> {
+  const session = await auth();
+  const token = await getSessionToken();
+  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  const db = getDb();
+  const { mfaSessions } = await import('@factory/db');
+  const [verified] = await db.select().from(mfaSessions).where(eq(mfaSessions.sessionToken, token));
+  if (!verified) return { error: 'Verifica tu sesión primero.' };
+  return { codes: await createRecoveryCodes(db, session.user.id) };
+}
