@@ -8,6 +8,8 @@ export const users = pgTable('user', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  // Set when the person asked to delete their account; the data is erased after the grace period.
+  deletionRequestedAt: timestamp('deletionRequestedAt', { mode: 'date' }),
 });
 
 export const accounts = pgTable(
@@ -154,4 +156,25 @@ export const alertState = pgTable('alert_state', {
   firedAt: timestamp('firedAt', { mode: 'date' }),
   lastNotifiedAt: timestamp('lastNotifiedAt', { mode: 'date' }),
   detail: text('detail'),
+});
+
+// Which version of the terms each person accepted, and when. Kept as proof; erased with the account.
+export const termsAcceptances = pgTable(
+  'terms_acceptance',
+  {
+    userId: text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    version: text('version').notNull(),
+    acceptedAt: timestamp('acceptedAt', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.version] })],
+);
+
+// Consent decisions by category (for example "analytics"). The latest row per category is the current decision.
+export const consents = pgTable('consent', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  userId: text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(),
+  granted: boolean('granted').notNull(),
+  policyVersion: text('policyVersion').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
 });

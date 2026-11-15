@@ -26,6 +26,9 @@ export async function authorize(
   db: AnyDb,
   input: { userId: string; organizationId: string; minimumRole: Role; sessionToken: string },
 ): Promise<AuthzResult> {
+  // A person whose account is scheduled for deletion cannot use any organization.
+  const [account] = await db.select({ pending: schema.users.deletionRequestedAt }).from(schema.users).where(eq(schema.users.id, input.userId));
+  if (!account || account.pending) return { allowed: false, reason: 'not_member' };
   const [membership] = await db
     .select({ role: schema.memberships.role })
     .from(schema.memberships)

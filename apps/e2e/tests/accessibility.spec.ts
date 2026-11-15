@@ -29,6 +29,10 @@ for (const locale of ['es', 'en'] as const) {
       await expectAccessible(page, 'home');
       await page.goto('/login');
       await expectAccessible(page, 'login');
+      for (const path of ['/legal/terms', '/legal/privacy']) {
+        await page.goto(path);
+        await expectAccessible(page, path);
+      }
     });
 
     test('two-step setup screens', async ({ page, context }) => {
@@ -54,6 +58,8 @@ for (const locale of ['es', 'en'] as const) {
       }
       await page.goto('/app/security');
       await expectAccessible(page, 'security (verified)');
+      await page.goto('/app/privacy');
+      await expectAccessible(page, 'privacy and data');
     });
   });
 }
