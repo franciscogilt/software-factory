@@ -21,3 +21,14 @@ Fase 0 (preparación). Aún no hay starter kit ni pipeline. Ver el plan completo
 pnpm install
 pnpm check
 ```
+
+## Pruebas de punta a punta
+
+```bash
+bash apps/e2e/local-db.sh          # PostgreSQL local en el puerto 5433 (solo si no usas Docker)
+pnpm --filter @factory/web build
+pnpm --filter @factory/e2e exec playwright install chromium
+pnpm --filter @factory/e2e test
+```
+
+En CI se ejecutan contra un servicio PostgreSQL real.
