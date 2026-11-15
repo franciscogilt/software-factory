@@ -63,3 +63,18 @@ export const memberships = pgTable(
   },
   (t) => [primaryKey({ columns: [t.organizationId, t.userId] })],
 );
+
+// Two-step verification (TOTP). The secret is stored encrypted; see apps/web/src/lib/mfa.ts.
+export const userTotp = pgTable('user_totp', {
+  userId: text('userId').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  secretEncrypted: text('secretEncrypted').notNull(),
+  confirmedAt: timestamp('confirmedAt', { mode: 'date' }),
+  failedAttempts: integer('failedAttempts').notNull().default(0),
+  lockedUntil: timestamp('lockedUntil', { mode: 'date' }),
+});
+
+// A session counts as verified only if it has a row here. Deleted with the session.
+export const mfaSessions = pgTable('mfa_session', {
+  sessionToken: text('sessionToken').primaryKey().references(() => sessions.sessionToken, { onDelete: 'cascade' }),
+  verifiedAt: timestamp('verifiedAt', { mode: 'date' }).notNull().defaultNow(),
+});

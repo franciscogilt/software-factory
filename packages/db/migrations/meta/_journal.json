@@ -8,6 +8,13 @@
       "when": 1794748690761,
       "tag": "0000_loose_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794748960550,
+      "tag": "0001_same_echo",
+      "breakpoints": true
     }
   ]
 }
