@@ -14,7 +14,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      worker:
+    build:
+      context: ..
+      dockerfile: packages/jobs/Dockerfile
+    environment:
+      DATABASE_URL: postgres://factory:factory@db:5432/factory
+      EMAIL_SERVER: smtp://mail:1025
+      EMAIL_FROM: Factory <no-reply@example.test>
+    depends_on:
       migrate:
+        condition: service_completed_successfully
+  migrate:
         condition: service_completed_successfully
   migrate:
     # Migrations run as their own job before the app starts, never inside the app process.

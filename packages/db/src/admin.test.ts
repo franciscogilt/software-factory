@@ -82,7 +82,7 @@ describe('resetTwoStep', () => {
   });
 
   it('resets the target: secret, recovery codes and sessions are removed, and it is audited', async () => {
-    expect(await resetTwoStep(db, { ...base(), actorUserId: id.dani!, actorSessionToken: 'dani-mfa' })).toEqual({ ok: true });
+    expect(await resetTwoStep(db, { ...base(), actorUserId: id.dani!, actorSessionToken: 'dani-mfa' })).toEqual({ ok: true, targetEmail: 'ana@example.test' });
     expect(await db.select().from(schema.userTotp).where(eq(schema.userTotp.userId, id.ana!))).toHaveLength(0);
     expect(await db.select().from(schema.recoveryCodes).where(eq(schema.recoveryCodes.userId, id.ana!))).toHaveLength(0);
     expect(await db.select().from(schema.sessions).where(eq(schema.sessions.userId, id.ana!))).toHaveLength(0);

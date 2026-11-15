@@ -27,7 +27,7 @@ export default async function OrgMembersPage({ params, searchParams }: { params:
       <h1>Miembros</h1>
       {reset === 'ok' && <p role="status">Verificación en dos pasos restablecida. El usuario deberá iniciar sesión de nuevo.</p>}
       <p>
-        {members.length} miembros, {withTwoStep} con verificación en dos pasos activa. <Link href={`/app/org/${id}/audit`}>Ver auditoría</Link>
+        {members.length} miembros, {withTwoStep} con verificación en dos pasos activa. <Link href={`/app/org/${id}/audit`}>Ver auditoría</Link> · <Link href={`/app/org/${id}/jobs`}>Trabajos en segundo plano</Link>
       </p>
       {members.length === 0 ? <p>Aún no hay miembros.</p> : (
         <table>

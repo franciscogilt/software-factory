@@ -105,3 +105,22 @@ export const auditLog = pgTable('audit_log', {
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
 });
+
+// Background jobs on PostgreSQL: retries with growing delays, one-time delivery by idempotency key.
+export const jobStatusEnum = pgEnum('job_status', ['queued', 'running', 'succeeded', 'dead']);
+
+export const jobs = pgTable('job', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: text('type').notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  organizationId: uuid('organizationId'),
+  status: jobStatusEnum('status').notNull().default('queued'),
+  attempts: integer('attempts').notNull().default(0),
+  maxAttempts: integer('maxAttempts').notNull().default(5),
+  runAt: timestamp('runAt', { mode: 'date' }).notNull().defaultNow(),
+  lockedAt: timestamp('lockedAt', { mode: 'date' }),
+  lastError: text('lastError'),
+  idempotencyKey: text('idempotencyKey').unique(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  finishedAt: timestamp('finishedAt', { mode: 'date' }),
+});
