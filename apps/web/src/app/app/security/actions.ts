@@ -5,6 +5,7 @@ import { timedFlow, type Outcome } from '@factory/jobs';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
+import { getT } from '@/i18n/server';
 import { getDb } from '@/lib/guard';
 import { checkTotp, encryptSecret, newTotpSecret } from '@/lib/mfa';
 import { getSessionToken } from '@/lib/session-token';
@@ -40,9 +41,10 @@ async function withOutcome(result: Promise<CodesState>): Promise<{ value: CodesS
 }
 
 async function verifyCode(data: FormData): Promise<CodesState> {
+  const { t } = await getT();
   const session = await auth();
   const token = await getSessionToken();
-  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  if (!session?.user?.id || !token) return { error: t('common.mustSignInAgain') };
   const db = getDb();
   const [before] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
   const outcome = await verifySecondStep(db, { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') }, (stored, code) => checkTotp(stored, code, key()));
@@ -54,7 +56,7 @@ async function verifyCode(data: FormData): Promise<CodesState> {
   }
   revalidatePath('/app/security');
   if (outcome === 'verified') return null;
-  return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código incorrecto o ya usado.' };
+  return { error: t(outcome === 'locked' ? 'security.locked' : 'security.wrongCode') };
 }
 
 export async function submitRecoveryCode(_prev: CodesState, data: FormData): Promise<CodesState> {
@@ -62,27 +64,29 @@ export async function submitRecoveryCode(_prev: CodesState, data: FormData): Pro
 }
 
 async function redeemCode(data: FormData): Promise<CodesState> {
+  const { t } = await getT();
   const session = await auth();
   const token = await getSessionToken();
-  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  if (!session?.user?.id || !token) return { error: t('common.mustSignInAgain') };
   const outcome = await redeemRecoveryCode(getDb(), { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') });
   revalidatePath('/app/security');
   if (outcome === 'verified') {
     await recordAudit(getDb(), { actorUserId: session.user.id, action: 'mfa.recovery_code_used' });
     return null;
   }
-  return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código de recuperación incorrecto o ya usado.' };
+  return { error: t(outcome === 'locked' ? 'security.locked' : 'security.wrongRecovery') };
 }
 
 // Only from a session already verified in two steps. Old codes stop working.
 export async function regenerateRecoveryCodes(): Promise<CodesState> {
+  const { t } = await getT();
   const session = await auth();
   const token = await getSessionToken();
-  if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
+  if (!session?.user?.id || !token) return { error: t('common.mustSignInAgain') };
   const db = getDb();
   const { mfaSessions } = await import('@factory/db');
   const [verified] = await db.select().from(mfaSessions).where(eq(mfaSessions.sessionToken, token));
-  if (!verified) return { error: 'Verifica tu sesión primero.' };
+  if (!verified) return { error: t('security.verifyFirst') };
   await recordAudit(db, { actorUserId: session.user.id, action: 'mfa.recovery_codes_regenerated' });
   return { codes: await createRecoveryCodes(db, session.user.id) };
 }

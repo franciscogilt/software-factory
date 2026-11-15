@@ -1,5 +1,7 @@
 import { listAudit } from '@factory/db';
 import { redirect } from 'next/navigation';
+import { formatDateTime, formatSettings } from '@/i18n/format';
+import { getT } from '@/i18n/server';
 import { getDb, requireOrgRole } from '@/lib/guard';
 
 export const dynamic = 'force-dynamic';
@@ -17,21 +19,23 @@ export default async function AuditPage({ params, searchParams }: { params: Prom
   if (!UUID.test(id)) redirect('/app');
   const result = await requireOrgRole(id, 'admin');
   if (!result.allowed) redirect(result.reason === 'mfa_required' ? '/app/security' : '/app');
+  const { t, locale } = await getT();
+  const { timeZone } = formatSettings();
   const rows = await listAudit(getDb(), { organizationId: id, from: parseDate(from, false), to: parseDate(to, true) });
   return (
     <main>
-      <h1>Auditoría</h1>
+      <h1>{t('audit.title')}</h1>
       <form method="get">
-        <label>Desde <input type="date" name="from" defaultValue={from} /></label>
-        <label>Hasta <input type="date" name="to" defaultValue={to} /></label>
-        <button type="submit">Filtrar</button>
+        <label>{t('audit.from')} <input type="date" name="from" defaultValue={from} /></label>
+        <label>{t('audit.to')} <input type="date" name="to" defaultValue={to} /></label>
+        <button type="submit">{t('audit.filter')}</button>
       </form>
-      {rows.length === 0 ? <p>No hay acciones registradas en este periodo.</p> : (
+      {rows.length === 0 ? <p>{t('audit.empty')}</p> : (
         <table>
-          <thead><tr><th>Fecha</th><th>Acción</th><th>Actor</th><th>Objetivo</th></tr></thead>
+          <thead><tr><th>{t('audit.colDate')}</th><th>{t('audit.colAction')}</th><th>{t('audit.colActor')}</th><th>{t('audit.colTarget')}</th></tr></thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id}><td>{r.createdAt.toISOString()}</td><td>{r.action}</td><td>{r.actorUserId}</td><td>{r.targetId}</td></tr>
+              <tr key={r.id}><td><time dateTime={r.createdAt.toISOString()}>{formatDateTime(r.createdAt, locale, timeZone)}</time></td><td>{r.action}</td><td>{r.actorUserId}</td><td>{r.targetId}</td></tr>
             ))}
           </tbody>
         </table>

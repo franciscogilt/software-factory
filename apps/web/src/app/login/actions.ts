@@ -4,6 +4,7 @@ import { hitRateLimit } from '@factory/db';
 import { headers } from 'next/headers';
 import { timedFlow } from '@factory/jobs';
 import { signIn } from '@/lib/auth';
+import { getT } from '@/i18n/server';
 import { getDb } from '@/lib/guard';
 
 export type LoginState = { error: string } | null;
@@ -22,8 +23,9 @@ export async function requestSignInLink(_prev: LoginState, data: FormData): Prom
 }
 
 async function requestLink(data: FormData): Promise<{ value: LoginState; outcome: 'success' | 'limited' }> {
+  const { t } = await getT();
   const email = String(data.get('email') ?? '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { value: { error: 'Escribe un correo válido.' }, outcome: 'limited' };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { value: { error: t('login.invalidEmail') }, outcome: 'limited' };
 
   const h = await headers();
   const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -35,7 +37,7 @@ async function requestLink(data: FormData): Promise<{ value: LoginState; outcome
     const result = await hitRateLimit(db, { key: check.key, limit: check.limit, windowMs: WINDOW_MS });
     if (!result.allowed) {
       const minutes = Math.ceil(result.retryAfterMs / 60_000);
-      return { value: { error: `Demasiados intentos. Vuelve a intentarlo en ${minutes} minuto${minutes === 1 ? '' : 's'}.` }, outcome: 'limited' };
+      return { value: { error: t('login.tooMany', { minutes, unit: t(minutes === 1 ? 'login.minuteOne' : 'login.minuteMany') }) }, outcome: 'limited' };
     }
   }
   await signIn('nodemailer', { email, redirectTo: '/app' });
