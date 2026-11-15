@@ -15,14 +15,16 @@ export async function seedSynthetic(db: PgDatabase<PgQueryResultHKT, typeof sche
       { name: 'Ana Demo', email: 'ana@example.test' },
       { name: 'Beto Demo', email: 'beto@example.test' },
       { name: 'Carla Demo', email: 'carla@example.test' },
+      { name: 'Dani Demo', email: 'dani@example.test' },
     ])
     .returning();
-  const [ana, beto, carla] = people;
-  if (!ana || !beto || !carla) throw new Error('seed failed');
+  const [ana, beto, carla, dani] = people;
+  if (!ana || !beto || !carla || !dani) throw new Error('seed failed');
 
   await db.insert(schema.memberships).values([
     { organizationId: orgA.id, userId: ana.id, role: 'owner' },
     { organizationId: orgA.id, userId: beto.id, role: 'member' },
+    { organizationId: orgA.id, userId: dani.id, role: 'owner' },
     { organizationId: orgB.id, userId: carla.id, role: 'owner' },
   ]);
 }
