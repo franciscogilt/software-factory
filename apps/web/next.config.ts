@@ -5,6 +5,7 @@ const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(import.meta.dirname, '../../'),
   poweredByHeader: false,
+  transpilePackages: ['@factory/db'],
   async headers() {
     return [
       {

@@ -7,6 +7,21 @@ services:
     ports: ["3000:3000"]
     environment:
       DATABASE_URL: postgres://factory:factory@db:5432/factory
+      AUTH_SECRET: dev-only-change-me
+      EMAIL_SERVER: smtp://mail:1025
+      EMAIL_FROM: Factory <no-reply@example.test>
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+  migrate:
+    # Migrations run as their own job before the app starts, never inside the app process.
+    build:
+      context: ..
+      dockerfile: packages/db/Dockerfile
+    environment:
+      DATABASE_URL: postgres://factory:factory@db:5432/factory
     depends_on:
       db:
         condition: service_healthy

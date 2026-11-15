@@ -12,28 +12,49 @@
       "static/chunks/e7e3044d-ffe374be2430ae06.js",
       "static/chunks/901-4bb38870caa2eef7.js",
       "static/chunks/main-app-ac102c3415143806.js",
-      "static/chunks/app/layout-47e53f5cfd3636e3.js"
+      "static/chunks/app/layout-3d2890f4ddd8078f.js"
+    ],
+    "/api/auth/[...nextauth]/route": [
+      "static/chunks/webpack-078f6dfb37dff419.js",
+      "static/chunks/e7e3044d-ffe374be2430ae06.js",
+      "static/chunks/901-4bb38870caa2eef7.js",
+      "static/chunks/main-app-ac102c3415143806.js",
+      "static/chunks/app/api/auth/[...nextauth]/route-3d2890f4ddd8078f.js"
     ],
     "/api/health/live/route": [
       "static/chunks/webpack-078f6dfb37dff419.js",
       "static/chunks/e7e3044d-ffe374be2430ae06.js",
       "static/chunks/901-4bb38870caa2eef7.js",
       "static/chunks/main-app-ac102c3415143806.js",
-      "static/chunks/app/api/health/live/route-47e53f5cfd3636e3.js"
+      "static/chunks/app/api/health/live/route-3d2890f4ddd8078f.js"
     ],
     "/api/health/ready/route": [
       "static/chunks/webpack-078f6dfb37dff419.js",
       "static/chunks/e7e3044d-ffe374be2430ae06.js",
       "static/chunks/901-4bb38870caa2eef7.js",
       "static/chunks/main-app-ac102c3415143806.js",
-      "static/chunks/app/api/health/ready/route-47e53f5cfd3636e3.js"
+      "static/chunks/app/api/health/ready/route-3d2890f4ddd8078f.js"
     ],
     "/page": [
       "static/chunks/webpack-078f6dfb37dff419.js",
       "static/chunks/e7e3044d-ffe374be2430ae06.js",
       "static/chunks/901-4bb38870caa2eef7.js",
       "static/chunks/main-app-ac102c3415143806.js",
-      "static/chunks/app/page-47e53f5cfd3636e3.js"
+      "static/chunks/app/page-3d2890f4ddd8078f.js"
+    ],
+    "/app/page": [
+      "static/chunks/webpack-078f6dfb37dff419.js",
+      "static/chunks/e7e3044d-ffe374be2430ae06.js",
+      "static/chunks/901-4bb38870caa2eef7.js",
+      "static/chunks/main-app-ac102c3415143806.js",
+      "static/chunks/app/app/page-3d2890f4ddd8078f.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack-078f6dfb37dff419.js",
+      "static/chunks/e7e3044d-ffe374be2430ae06.js",
+      "static/chunks/901-4bb38870caa2eef7.js",
+      "static/chunks/main-app-ac102c3415143806.js",
+      "static/chunks/app/login/page-3d2890f4ddd8078f.js"
     ]
   }
 }
