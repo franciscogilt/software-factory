@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # One-off migration job image.
 FROM node:22.12-alpine
-RUN corepack enable
+RUN npm install -g pnpm@10.28.0
 WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/db packages/db
