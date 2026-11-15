@@ -3,7 +3,8 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './schema';
 
 type AnyDb = PgDatabase<PgQueryResultHKT, typeof schema>;
-export type Role = 'owner' | 'admin' | 'member';
+export type { Role } from './schema';
+import type { Role } from './schema';
 
 const rank: Record<Role, number> = { member: 1, admin: 2, owner: 3 };
 

@@ -1,6 +1,6 @@
 'use server';
 
-import { createRecoveryCodes, redeemRecoveryCode, userTotp, verifySecondStep } from '@factory/db';
+import { createRecoveryCodes, recordAudit, redeemRecoveryCode, userTotp, verifySecondStep } from '@factory/db';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
@@ -37,7 +37,10 @@ export async function submitCode(_prev: CodesState, data: FormData): Promise<Cod
   const outcome = await verifySecondStep(db, { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') }, (stored, code) => checkTotp(stored, code, key()));
   // On first confirmation, return the recovery codes without revalidating: a re-render would replace this
   // form with the "verified" view and the codes (shown only once) would disappear before the user saves them.
-  if (outcome === 'verified' && before && !before.confirmedAt) return { codes: await createRecoveryCodes(db, session.user.id) };
+  if (outcome === 'verified' && before && !before.confirmedAt) {
+    await recordAudit(db, { actorUserId: session.user.id, action: 'mfa.enrolled' });
+    return { codes: await createRecoveryCodes(db, session.user.id) };
+  }
   revalidatePath('/app/security');
   if (outcome === 'verified') return null;
   return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código incorrecto o ya usado.' };
@@ -49,7 +52,10 @@ export async function submitRecoveryCode(_prev: CodesState, data: FormData): Pro
   if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
   const outcome = await redeemRecoveryCode(getDb(), { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') });
   revalidatePath('/app/security');
-  if (outcome === 'verified') return null;
+  if (outcome === 'verified') {
+    await recordAudit(getDb(), { actorUserId: session.user.id, action: 'mfa.recovery_code_used' });
+    return null;
+  }
   return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código de recuperación incorrecto o ya usado.' };
 }
 
@@ -62,5 +68,6 @@ export async function regenerateRecoveryCodes(): Promise<CodesState> {
   const { mfaSessions } = await import('@factory/db');
   const [verified] = await db.select().from(mfaSessions).where(eq(mfaSessions.sessionToken, token));
   if (!verified) return { error: 'Verifica tu sesión primero.' };
+  await recordAudit(db, { actorUserId: session.user.id, action: 'mfa.recovery_codes_regenerated' });
   return { codes: await createRecoveryCodes(db, session.user.id) };
 }

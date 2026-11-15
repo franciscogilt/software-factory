@@ -22,6 +22,20 @@
       "when": 1794750751366,
       "tag": "0002_square_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794753523845,
+      "tag": "0003_youthful_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794753524400,
+      "tag": "0004_audit_log_immutable",
+      "breakpoints": true
     }
   ]
 }

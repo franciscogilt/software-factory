@@ -1,4 +1,4 @@
-import { bigint, integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, bigserial, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Auth.js tables (shape required by @auth/drizzle-adapter).
 export const users = pgTable('user', {
@@ -46,6 +46,7 @@ export const verificationTokens = pgTable(
 
 // Multi-tenant model: every business row belongs to an organization.
 export const roleEnum = pgEnum('role', ['owner', 'admin', 'member']);
+export type Role = (typeof roleEnum.enumValues)[number];
 
 export const organizations = pgTable('organization', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -91,3 +92,16 @@ export const recoveryCodes = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.codeHash] })],
 );
+
+// Append-only record of who did what. A database trigger rejects UPDATE and DELETE.
+// actorUserId and organizationId are plain columns (no foreign keys) so history survives deletions.
+export const auditLog = pgTable('audit_log', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  organizationId: uuid('organizationId'),
+  actorUserId: text('actorUserId'),
+  action: text('action').notNull(),
+  targetType: text('targetType'),
+  targetId: text('targetId'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+});

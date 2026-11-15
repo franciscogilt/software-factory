@@ -12,3 +12,5 @@ export function createDb(databaseUrl: string) {
 }
 
 export type Db = ReturnType<typeof createDb>['db'];
+export * from './audit';
+export * from './admin';

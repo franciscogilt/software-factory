@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { createDb, sessions, userTotp, users, organizations } from '@factory/db';
+import { createDb, mfaSessions, sessions, userTotp, users, organizations } from '@factory/db';
 import { eq } from 'drizzle-orm';
 import { authenticator } from 'otplib';
 import type { BrowserContext } from '@playwright/test';
 import { env } from '../playwright.config';
-import { decryptSecret } from '../../web/src/lib/mfa';
+import { decryptSecret, encryptSecret, newTotpSecret } from '../../web/src/lib/mfa';
 
 export const { db } = createDb(env.DATABASE_URL);
 
@@ -35,4 +35,14 @@ export async function currentTotpCode(email: string): Promise<string> {
   const [row] = await db.select().from(userTotp).where(eq(userTotp.userId, userId));
   if (!row) throw new Error('Not enrolled');
   return authenticator.generate(decryptSecret(row.secretEncrypted, env.MFA_ENCRYPTION_KEY));
+}
+
+// Enrolls a user in two-step verification and marks the given session as verified, without going through the UI.
+export async function enrollAndVerify(email: string, sessionToken: string): Promise<void> {
+  const userId = await userIdByEmail(email);
+  await db
+    .insert(userTotp)
+    .values({ userId, secretEncrypted: encryptSecret(newTotpSecret(), env.MFA_ENCRYPTION_KEY), confirmedAt: new Date() })
+    .onConflictDoNothing();
+  await db.insert(mfaSessions).values({ sessionToken }).onConflictDoNothing();
 }
