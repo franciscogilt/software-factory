@@ -18,7 +18,7 @@ describe('catalogs', () => {
 
   it('English values differ from Spanish except for names that are the same in both', () => {
     const same = keys(getMessages('es')).filter((k) => createTranslate('es')(k as never) === createTranslate('en')(k as never));
-    expect(same.sort()).toEqual(['audit.colActor', 'common.appName', 'org.colTwoStep'].sort());
+    expect(same.sort()).toEqual(['audit.colActor', 'common.appName', 'org.colTwoStep', 'reports.csv', 'reports.pdf'].sort());
   });
 });
 

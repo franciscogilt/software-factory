@@ -28,7 +28,7 @@ export default async function OrgMembersPage({ params, searchParams }: { params:
       <h1>{t('org.members')}</h1>
       {reset === 'ok' && <p role="status">{t('org.resetDone')}</p>}
       <p>
-        {t('org.summary', { count: members.length, withTwoStep })} <Link href={`/app/org/${id}/audit`}>{t('org.viewAudit')}</Link> · <Link href={`/app/org/${id}/jobs`}>{t('org.viewJobs')}</Link>
+        {t('org.summary', { count: members.length, withTwoStep })} <Link href={`/app/org/${id}/reports`}>{t('reports.viewReports')}</Link> · <Link href={`/app/org/${id}/audit`}>{t('org.viewAudit')}</Link> · <Link href={`/app/org/${id}/jobs`}>{t('org.viewJobs')}</Link>
       </p>
       {members.length === 0 ? <p>{t('org.noMembers')}</p> : (
         <table>

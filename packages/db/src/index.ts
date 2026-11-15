@@ -19,3 +19,4 @@ export * from './admin';
 // Works with any PostgreSQL driver (postgres-js in production, PGlite in tests).
 export type AnyPgDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 export * from './rate-limit';
+export * from './reports';
