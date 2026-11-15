@@ -8,3 +8,6 @@ coverage/
 .factory-state/
 test-results/
 playwright-report/
+.next/
+*.tsbuildinfo
+next-env.d.ts
