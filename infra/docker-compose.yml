@@ -11,6 +11,7 @@ services:
       MFA_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZXMta2V5LWNoYW5nZS1tZSE=
       EMAIL_SERVER: smtp://mail:1025
       EMAIL_FROM: Factory <no-reply@example.test>
+      METRICS_TOKEN: dev-only-metrics-token
     depends_on:
       db:
         condition: service_healthy
@@ -22,6 +23,7 @@ services:
       DATABASE_URL: postgres://factory:factory@db:5432/factory
       EMAIL_SERVER: smtp://mail:1025
       EMAIL_FROM: Factory <no-reply@example.test>
+      ALERT_EMAIL: owner@example.test
     depends_on:
       migrate:
         condition: service_completed_successfully

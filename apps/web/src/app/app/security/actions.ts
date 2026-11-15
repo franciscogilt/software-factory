@@ -1,6 +1,7 @@
 'use server';
 
 import { createRecoveryCodes, recordAudit, redeemRecoveryCode, userTotp, verifySecondStep } from '@factory/db';
+import { timedFlow, type Outcome } from '@factory/jobs';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
@@ -29,6 +30,16 @@ export async function beginEnrollment(): Promise<void> {
 
 // First successful verification confirms the enrollment and shows the recovery codes once.
 export async function submitCode(_prev: CodesState, data: FormData): Promise<CodesState> {
+  return timedFlow(getDb(), 'twostep_code', () => withOutcome(verifyCode(data)));
+}
+
+// A wrong or locked code is an expected refusal, not a failure of the flow.
+async function withOutcome(result: Promise<CodesState>): Promise<{ value: CodesState; outcome: Outcome }> {
+  const value = await result;
+  return { value, outcome: value && 'error' in value ? 'limited' : 'success' };
+}
+
+async function verifyCode(data: FormData): Promise<CodesState> {
   const session = await auth();
   const token = await getSessionToken();
   if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };
@@ -47,6 +58,10 @@ export async function submitCode(_prev: CodesState, data: FormData): Promise<Cod
 }
 
 export async function submitRecoveryCode(_prev: CodesState, data: FormData): Promise<CodesState> {
+  return timedFlow(getDb(), 'twostep_recovery', () => withOutcome(redeemCode(data)));
+}
+
+async function redeemCode(data: FormData): Promise<CodesState> {
   const session = await auth();
   const token = await getSessionToken();
   if (!session?.user?.id || !token) return { error: 'Inicia sesión de nuevo.' };

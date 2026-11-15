@@ -1,4 +1,4 @@
-import { bigint, bigserial, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, bigserial, boolean, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Auth.js tables (shape required by @auth/drizzle-adapter).
 export const users = pgTable('user', {
@@ -132,4 +132,26 @@ export const rateLimits = pgTable('rate_limit', {
   windowStart: timestamp('windowStart', { mode: 'date' }).notNull(),
   strikes: integer('strikes').notNull().default(0),
   blockedUntil: timestamp('blockedUntil', { mode: 'date' }),
+});
+
+// Outcome and duration of critical flows (sign-in link, two-step verification...). Feeds metrics and alerts.
+export const flowMetrics = pgTable(
+  'flow_metric',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    flow: text('flow').notNull(),
+    outcome: text('outcome').notNull(), // 'success' | 'failure' | 'limited' (expected refusals are not failures)
+    durationMs: integer('durationMs').notNull().default(0),
+    createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => [index('flow_metric_created_idx').on(t.createdAt)],
+);
+
+// One row per alert condition, so an ongoing problem sends one message (and a reminder), not one per check.
+export const alertState = pgTable('alert_state', {
+  key: text('key').primaryKey(),
+  active: boolean('active').notNull().default(false),
+  firedAt: timestamp('firedAt', { mode: 'date' }),
+  lastNotifiedAt: timestamp('lastNotifiedAt', { mode: 'date' }),
+  detail: text('detail'),
 });

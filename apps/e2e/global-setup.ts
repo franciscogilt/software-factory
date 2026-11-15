@@ -8,7 +8,7 @@ import { env } from './playwright.config';
 export default async function globalSetup() {
   execFileSync('pnpm', ['--filter', '@factory/db', 'migrate'], { env: { ...process.env, ...env }, stdio: 'inherit' });
   const { db, close } = createDb(env.DATABASE_URL);
-  await db.execute(sql`TRUNCATE "user", "organization", "rate_limit", "job" CASCADE`);
+  await db.execute(sql`TRUNCATE "user", "organization", "rate_limit", "job", "flow_metric", "alert_state" CASCADE`);
   await seedSynthetic(db);
   await close();
 }
