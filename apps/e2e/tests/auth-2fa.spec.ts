@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { currentTotpCode, enrollAndVerify, orgIdByName, signInAs } from './helpers';
+import { jobs } from '@factory/db';
+import { and, eq } from 'drizzle-orm';
+import { currentTotpCode, db, enrollAndVerify, orgIdByName, signInAs } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -103,6 +105,10 @@ test.describe('owner resets a colleague two-step verification', () => {
     await anaPage.goto(`/app/org/${orgId}`);
     await expect(anaPage).toHaveURL(/\/app\/security/);
     await anaCtx.close();
+
+    // The affected user is notified through the job queue.
+    const notices = await db.select().from(jobs).where(and(eq(jobs.type, 'email.send'), eq(jobs.organizationId, orgId)));
+    expect(notices.some((j) => j.payload.to === 'ana@example.test')).toBe(true);
   });
 
   test('an owner cannot reset their own verification', async ({ page, context }) => {
@@ -124,4 +130,30 @@ test.describe('owner resets a colleague two-step verification', () => {
     await expect(page.getByRole('heading', { name: 'Miembros' })).toBeVisible();
     await expect(page.getByText('ana@example.test')).toHaveCount(0);
   });
+});
+
+test('requesting a sign-in link queues an email instead of sending it inline', async ({ page }) => {
+  await page.goto('/login');
+  await page.getByLabel('Correo').fill('nuevo@example.test');
+  await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
+  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'nuevo@example.test' && String(j.payload.text).includes('/api/auth/callback/nodemailer'))).toBe(true);
+});
+
+test('admins see failed background jobs of their organization and can retry them', async ({ page, context }) => {
+  const token = await signInAs(context, 'dani@example.test');
+  await enrollAndVerify('dani@example.test', token);
+  const orgId = await orgIdByName('Acme Demo');
+  const [dead] = await db.insert(jobs).values({ type: 'email.send', payload: { to: 'x@example.test' }, organizationId: orgId, status: 'dead', attempts: 5, lastError: 'SMTP down' }).returning();
+  await page.goto(`/app/org/${orgId}/jobs`);
+  await expect(page.getByRole('cell', { name: 'SMTP down' })).toBeVisible();
+  await page.getByRole('button', { name: 'Reintentar' }).first().click();
+  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.id, dead!.id)))[0]?.status).toBe('queued');
+});
+
+test('a member of another organization cannot see this organization failed jobs', async ({ page, context }) => {
+  const token = await signInAs(context, 'carla@example.test');
+  await enrollAndVerify('carla@example.test', token);
+  const other = await orgIdByName('Acme Demo');
+  await page.goto(`/app/org/${other}/jobs`);
+  await expect(page).toHaveURL(/\/app$/);
 });

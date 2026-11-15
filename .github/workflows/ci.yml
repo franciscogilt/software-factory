@@ -22,6 +22,8 @@ jobs:
       - run: pnpm --filter @factory/web test
       - run: pnpm --filter @factory/db typecheck
       - run: pnpm --filter @factory/db test
+      - run: pnpm --filter @factory/jobs typecheck
+      - run: pnpm --filter @factory/jobs test
   image:
     runs-on: ubuntu-latest
     needs: check
@@ -31,6 +33,7 @@ jobs:
         run: |
           docker build -f apps/web/Dockerfile -t factory-web:ci .
           docker build -f packages/db/Dockerfile -t factory-migrate:ci .
+          docker build -f packages/jobs/Dockerfile -t factory-worker:ci .
       - name: Smoke test the container
         run: |
           docker run -d --name web -p 3000:3000 -e DATABASE_URL=postgres://x factory-web:ci
@@ -67,6 +70,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @factory/db migrate
+      - name: Job queue with parallel workers on real PostgreSQL
+        run: pnpm --filter @factory/jobs test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5433/postgres
       - run: pnpm --filter @factory/web build
       - run: pnpm --filter @factory/e2e exec playwright install --with-deps chromium
       - run: pnpm --filter @factory/e2e test

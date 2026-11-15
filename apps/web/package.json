@@ -13,6 +13,7 @@
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
     "@factory/db": "workspace:*",
+    "@factory/jobs": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "next": "^15.5.0",
     "next-auth": "5.0.0-beta.32",

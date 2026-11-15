@@ -7,7 +7,7 @@ import * as schema from './schema';
 type AnyDb = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export type ResetResult =
-  | { ok: true }
+  | { ok: true; targetEmail: string | null }
   | { ok: false; reason: 'not_allowed' | 'mfa_required' | 'cannot_reset_self' | 'target_not_member' };
 
 // Another owner of the same organization resets a colleague's two-step verification.
@@ -26,8 +26,9 @@ export async function resetTwoStep(
   if (input.targetUserId === input.actorUserId) return { ok: false, reason: 'cannot_reset_self' };
 
   const [member] = await db
-    .select({ userId: schema.memberships.userId })
+    .select({ userId: schema.memberships.userId, email: schema.users.email })
     .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(and(eq(schema.memberships.organizationId, input.organizationId), eq(schema.memberships.userId, input.targetUserId)));
   if (!member) return { ok: false, reason: 'target_not_member' };
 
@@ -47,7 +48,7 @@ export async function resetTwoStep(
     targetType: 'user',
     targetId: input.targetUserId,
   });
-  return { ok: true };
+  return { ok: true, targetEmail: member.email };
 }
 
 export type MemberRow = { userId: string; email: string | null; name: string | null; role: schema.Role; twoStep: 'active' | 'pending' | 'off' };
