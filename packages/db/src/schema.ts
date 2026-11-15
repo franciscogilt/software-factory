@@ -124,3 +124,12 @@ export const jobs = pgTable('job', {
   createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
   finishedAt: timestamp('finishedAt', { mode: 'date' }),
 });
+
+// Attempt limits with progressive blocking (login links, recovery). One row per key.
+export const rateLimits = pgTable('rate_limit', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull().default(0),
+  windowStart: timestamp('windowStart', { mode: 'date' }).notNull(),
+  strikes: integer('strikes').notNull().default(0),
+  blockedUntil: timestamp('blockedUntil', { mode: 'date' }),
+});

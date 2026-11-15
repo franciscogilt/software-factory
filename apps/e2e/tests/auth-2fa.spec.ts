@@ -157,3 +157,41 @@ test('a member of another organization cannot see this organization failed jobs'
   await page.goto(`/app/org/${other}/jobs`);
   await expect(page).toHaveURL(/\/app$/);
 });
+
+test('every page is served with a nonce-based CSP and no script is blocked', async ({ page, context }) => {
+  const violations: string[] = [];
+  page.on('console', (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text()); });
+  const response = await page.goto('/login');
+  const csp = response!.headers()['content-security-policy'] ?? '';
+  expect(csp).toMatch(/script-src 'self' 'nonce-[\w=+/]+' 'strict-dynamic'/);
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(response!.headers()['x-content-type-options']).toBe('nosniff');
+
+  // A client component with interaction (hydrated under the policy) still works.
+  await page.getByLabel('Correo').fill('csp@example.test');
+  await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
+  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'csp@example.test')).toBe(true);
+
+  await page.waitForURL(/verify-request/);
+  const token = await signInAs(context, 'ana@example.test');
+  await enrollAndVerify('ana@example.test', token);
+  await page.goto('/app/security');
+  await expect(page.getByText('Esta sesión está verificada.')).toBeVisible();
+  expect(violations).toEqual([]);
+});
+
+test('sign-in link requests are limited per address with a clear message', async ({ page }) => {
+  await page.goto('/login');
+  for (let i = 1; i <= 5; i++) {
+    await page.getByLabel('Correo').fill('limite@example.test');
+    await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
+    await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test').length).toBe(i);
+    await page.waitForURL(/verify-request/);
+    await page.goto('/login');
+  }
+  await page.getByLabel('Correo').fill('limite@example.test');
+  await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
+  await expect(page.locator('p[role="alert"]')).toContainText('Demasiados intentos');
+  const sent = (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test');
+  expect(sent).toHaveLength(5);
+});
