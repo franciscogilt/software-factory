@@ -71,6 +71,12 @@
       "namedRegex": "^/app(?:/)?$"
     },
     {
+      "page": "/app/security",
+      "regex": "^/app/security(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/app/security(?:/)?$"
+    },
+    {
       "page": "/login",
       "regex": "^/login(?:/)?$",
       "routeKeys": {},

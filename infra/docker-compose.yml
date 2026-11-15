@@ -8,6 +8,7 @@ services:
     environment:
       DATABASE_URL: postgres://factory:factory@db:5432/factory
       AUTH_SECRET: dev-only-change-me
+      MFA_ENCRYPTION_KEY: ZGV2LW9ubHktMzItYnl0ZXMta2V5LWNoYW5nZS1tZSE=
       EMAIL_SERVER: smtp://mail:1025
       EMAIL_FROM: Factory <no-reply@example.test>
     depends_on:
