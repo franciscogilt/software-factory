@@ -318,6 +318,6 @@
     ".next/required-server-files.json"
   ],
   "ignore": [
-    "../../node_modules/.pnpm/next@15.5.29_@types+node@22.20.5_react-dom@19.3.1_react@19.3.1__react@19.3.1/node_modules/next/dist/compiled/@ampproject/toolbox-optimizer/**/*"
+    "../../node_modules/.pnpm/next@15.5.29_@playwright+test@1.65.1_@types+node@22.20.5_react-dom@19.3.1_react@19.3.1__react@19.3.1/node_modules/next/dist/compiled/@ampproject/toolbox-optimizer/**/*"
   ]
 }

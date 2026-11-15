@@ -6,3 +6,5 @@ dist/
 coverage/
 .DS_Store
 .factory-state/
+test-results/
+playwright-report/

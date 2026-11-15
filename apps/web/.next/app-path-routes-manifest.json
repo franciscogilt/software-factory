@@ -1,11 +1,11 @@
 {
   "/_not-found/page": "/_not-found",
   "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
-  "/api/health/ready/route": "/api/health/ready",
   "/api/health/live/route": "/api/health/live",
+  "/api/health/ready/route": "/api/health/ready",
   "/page": "/",
-  "/app/page": "/app",
   "/app/org/[id]/page": "/app/org/[id]",
+  "/app/page": "/app",
   "/app/security/page": "/app/security",
   "/login/page": "/login"
 }

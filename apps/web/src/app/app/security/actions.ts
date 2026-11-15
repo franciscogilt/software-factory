@@ -35,8 +35,11 @@ export async function submitCode(_prev: CodesState, data: FormData): Promise<Cod
   const db = getDb();
   const [before] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
   const outcome = await verifySecondStep(db, { userId: session.user.id, sessionToken: token, code: String(data.get('code') ?? '') }, (stored, code) => checkTotp(stored, code, key()));
+  // On first confirmation, return the recovery codes without revalidating: a re-render would replace this
+  // form with the "verified" view and the codes (shown only once) would disappear before the user saves them.
+  if (outcome === 'verified' && before && !before.confirmedAt) return { codes: await createRecoveryCodes(db, session.user.id) };
   revalidatePath('/app/security');
-  if (outcome === 'verified') return before && !before.confirmedAt ? { codes: await createRecoveryCodes(db, session.user.id) } : null;
+  if (outcome === 'verified') return null;
   return { error: outcome === 'locked' ? 'Demasiados intentos. Espera 15 minutos.' : 'Código incorrecto o ya usado.' };
 }
 
