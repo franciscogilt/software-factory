@@ -1,0 +1,12 @@
+title = "software-factory"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known harmless matches"
+# Next.js build output that was committed by mistake early on and later removed (PR #7). It only exists in history
+# and holds generated build identifiers, not credentials.
+paths = ['''apps/web/\.next/''']
+# The development-only key used by docker-compose for local runs (decodes to "dev-only-32-bytes-key-change-me!").
+regexes = ['''ZGV2LW9ubHktMzItYnl0ZXMta2V5LWNoYW5nZS1tZSE=''']

@@ -54,12 +54,14 @@ jobs:
       - name: Scan images
         run: |
           mkdir -p sbom
+          failed=0
           for image in web migrate worker backup; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/sbom" aquasec/trivy:0.57.1 \
-              image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress factory-$image:scan
+              image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress factory-$image:scan || failed=1
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/sbom" aquasec/trivy:0.57.1 \
               image --format cyclonedx --output /sbom/$image.cdx.json --no-progress factory-$image:scan
           done
+          exit $failed
       - uses: actions/upload-artifact@v4
         if: always()
         with:

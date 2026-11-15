@@ -32,7 +32,9 @@ LEFT="$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_database WHERE datnam
 check "$LEFT" 0 "no scratch databases left behind"
 
 # 4. Old backups are pruned, the newest is kept.
-touch -d '30 days ago' "$BACKUP_DIR/factory-20000101T000000Z.dump" "$BACKUP_DIR/factory-20000101T000000Z.dump.sha256"
+OLD="$(date -u -d "@$(( $(date -u +%s) - 2592000 ))" '+%Y-%m-%d %H:%M:%S')" # 30 days ago, portable (GNU and busybox)
+touch "$BACKUP_DIR/factory-20000101T000000Z.dump" "$BACKUP_DIR/factory-20000101T000000Z.dump.sha256"
+touch -d "$OLD" "$BACKUP_DIR/factory-20000101T000000Z.dump" "$BACKUP_DIR/factory-20000101T000000Z.dump.sha256"
 sh "$HERE/backup.sh" > /dev/null
 [ ! -e "$BACKUP_DIR/factory-20000101T000000Z.dump" ]; check $? 0 "old backups are pruned"
 [ -e "$(cat "$BACKUP_DIR/latest")" ]; check $? 0 "newest backup is kept"

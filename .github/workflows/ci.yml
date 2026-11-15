@@ -72,18 +72,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @factory/db migrate
       - run: pnpm --filter @factory/db seed
-      - name: Install the PostgreSQL 16 client
+      - name: Build the backup image
+        run: docker build -f infra/backup/Dockerfile -t factory-backup:ci .
+      - name: Backup and restore self-test (inside the real image)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-16 || true
-          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
-      - name: Backup and restore self-test
-        run: sh infra/backup/test.sh
+          docker run --rm --network host -e DATABASE_URL -v "$PWD/infra/backup:/t:ro" factory-backup:ci sh /t/test.sh
       - name: Backup and restore of the real schema
         run: |
-          export BACKUP_DIR="$RUNNER_TEMP/backups"
-          sh infra/backup/backup.sh
-          sh infra/backup/restore-check.sh "$(cat "$BACKUP_DIR/latest")"
+          docker run --rm --network host -e DATABASE_URL -e BACKUP_DIR=/tmp/b factory-backup:ci \
+            sh -c 'sh /app/backup.sh && sh /app/restore-check.sh "$(cat /tmp/b/latest)"'
   e2e:
     runs-on: ubuntu-latest
     needs: check
