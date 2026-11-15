@@ -24,8 +24,9 @@ COPY packages/jobs packages/jobs
 RUN pnpm --filter @factory/web build
 
 FROM node:22.23-alpine AS run
-# Pick up OS security fixes published after the base image was built.
-RUN apk upgrade --no-cache
+# Pick up OS security fixes, and remove the package managers: the runtime never installs anything.
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn*
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
