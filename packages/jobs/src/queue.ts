@@ -83,9 +83,9 @@ export async function listDead(db: AnyPgDb, organizationId: string, limit = 50):
   return db.select().from(jobs).where(and(eq(jobs.organizationId, organizationId), eq(jobs.status, 'dead'))).orderBy(asc(jobs.finishedAt)).limit(limit);
 }
 
-export async function queueStats(db: AnyPgDb): Promise<{ queued: number; running: number; dead: number; oldestQueuedMs: number | null }> {
+export async function queueStats(db: AnyPgDb, now: Date = new Date()): Promise<{ queued: number; running: number; dead: number; oldestQueuedMs: number | null }> {
   const rows = await db.select({ status: jobs.status, n: count() }).from(jobs).groupBy(jobs.status);
   const by = Object.fromEntries(rows.map((r) => [r.status, Number(r.n)]));
   const [oldest] = await db.select({ runAt: jobs.runAt }).from(jobs).where(eq(jobs.status, 'queued')).orderBy(asc(jobs.runAt)).limit(1);
-  return { queued: by.queued ?? 0, running: by.running ?? 0, dead: by.dead ?? 0, oldestQueuedMs: oldest ? Math.max(Date.now() - oldest.runAt.getTime(), 0) : null };
+  return { queued: by.queued ?? 0, running: by.running ?? 0, dead: by.dead ?? 0, oldestQueuedMs: oldest ? Math.max(now.getTime() - oldest.runAt.getTime(), 0) : null };
 }

@@ -9,6 +9,7 @@ export const env = {
   EMAIL_SERVER: 'smtp://127.0.0.1:1025',
   EMAIL_FROM: 'Factory <no-reply@example.test>',
   AUTH_URL: 'http://localhost:3100',
+  METRICS_TOKEN: 'e2e-only-metrics-token',
 };
 
 export default defineConfig({
