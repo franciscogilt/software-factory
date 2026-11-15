@@ -26,18 +26,25 @@ describe('secret encryption', () => {
 });
 
 describe('checkTotp', () => {
-  it('accepts the current code and rejects others', () => {
+  it('returns the current time step for the current code', () => {
     const secret = newTotpSecret();
     const stored = encryptSecret(secret, key);
-    expect(checkTotp(stored, authenticator.generate(secret), key)).toBe(true);
-    expect(checkTotp(stored, '000000', key)).toBe(authenticator.check('000000', secret));
+    const step = checkTotp(stored, authenticator.generate(secret), key);
+    expect(step).toBe(Math.floor(Date.now() / 1000 / 30));
+  });
+
+  it('returns null for wrong codes', () => {
+    const secret = newTotpSecret();
+    const stored = encryptSecret(secret, key);
+    const wrong = authenticator.check('000000', secret) ? '111111' : '000000';
+    expect(checkTotp(stored, wrong, key)).toBeNull();
   });
 
   it('rejects malformed codes without throwing', () => {
     const stored = encryptSecret(newTotpSecret(), key);
-    expect(checkTotp(stored, 'abcdef', key)).toBe(false);
-    expect(checkTotp(stored, '12345', key)).toBe(false);
-    expect(checkTotp('garbage', '123456', key)).toBe(false);
+    expect(checkTotp(stored, 'abcdef', key)).toBeNull();
+    expect(checkTotp(stored, '12345', key)).toBeNull();
+    expect(checkTotp('garbage', '123456', key)).toBeNull();
   });
 });
 

@@ -6,7 +6,8 @@ import { auth } from '@/lib/auth';
 import { getDb } from '@/lib/guard';
 import { decryptSecret, otpauthUri } from '@/lib/mfa';
 import { getSessionToken } from '@/lib/session-token';
-import { beginEnrollment, submitCode } from './actions';
+import { beginEnrollment } from './actions';
+import { CodeForm, RecoveryForm, RegenerateForm } from './forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export default async function SecurityPage() {
   const [totp] = await db.select().from(userTotp).where(eq(userTotp.userId, session.user.id));
   const [verified] = await db.select().from(mfaSessions).where(eq(mfaSessions.sessionToken, token));
 
-  if (verified) return <main><h1>Verificación en dos pasos</h1><p>Esta sesión está verificada.</p></main>;
+  if (verified) return <main><h1>Verificación en dos pasos</h1><p>Esta sesión está verificada.</p><RegenerateForm /></main>;
 
   const pending = totp && !totp.confirmedAt;
   const qr = pending
@@ -36,15 +37,8 @@ export default async function SecurityPage() {
       )}
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL, nothing to optimize */}
       {qr && <img src={qr} alt="Código QR para tu app de autenticación" width={200} height={200} />}
-      {totp && (
-        <form action={submitCode}>
-          <label>
-            Código de 6 dígitos
-            <input name="code" inputMode="numeric" pattern="\d{6}" maxLength={6} required autoComplete="one-time-code" />
-          </label>
-          <button type="submit">Verificar</button>
-        </form>
-      )}
+      {totp && <CodeForm />}
+      {totp?.confirmedAt && <RecoveryForm />}
     </main>
   );
 }

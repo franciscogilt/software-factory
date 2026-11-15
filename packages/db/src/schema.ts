@@ -1,4 +1,4 @@
-import { integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Auth.js tables (shape required by @auth/drizzle-adapter).
 export const users = pgTable('user', {
@@ -71,6 +71,8 @@ export const userTotp = pgTable('user_totp', {
   confirmedAt: timestamp('confirmedAt', { mode: 'date' }),
   failedAttempts: integer('failedAttempts').notNull().default(0),
   lockedUntil: timestamp('lockedUntil', { mode: 'date' }),
+  // Last accepted 30-second time step; a code from the same or an older step is a replay and is rejected.
+  lastUsedStep: bigint('lastUsedStep', { mode: 'number' }),
 });
 
 // A session counts as verified only if it has a row here. Deleted with the session.
@@ -78,3 +80,14 @@ export const mfaSessions = pgTable('mfa_session', {
   sessionToken: text('sessionToken').primaryKey().references(() => sessions.sessionToken, { onDelete: 'cascade' }),
   verifiedAt: timestamp('verifiedAt', { mode: 'date' }).notNull().defaultNow(),
 });
+
+// One-time recovery codes, stored only as hashes.
+export const recoveryCodes = pgTable(
+  'recovery_code',
+  {
+    userId: text('userId').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    codeHash: text('codeHash').notNull(),
+    usedAt: timestamp('usedAt', { mode: 'date' }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.codeHash] })],
+);
