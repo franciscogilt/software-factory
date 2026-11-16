@@ -47,6 +47,10 @@ commands:
 
 ## Límites conocidos
 
+- HOME privado también en Node: se pierden `~/.npmrc` y las cachés, así que un proyecto con registro privado con token fallará en la instalación hasta declarar `commands.install` o usar un contenedor con la configuración. Es el precio de no exponer el HOME real.
+- El tiempo límite de 30 minutos por paso aplica también a las puertas del starter kit.
+- `docs/security/*.md` (registros de pruebas de penetración) pasa a nivel alto por la regla de carpetas de seguridad; es la dirección segura.
+
 - Con `commands:` se **descartan las puertas del starter kit** (estructura, licencias): el producto solo tiene compilación, tipos, linter, pruebas y documentación. El escaneo de secretos y de dependencias debe darlo el CI del producto; hoy no hay sustituto en otros stacks.
 - La cobertura por defecto de Python (`--cov=.`) cuenta también los archivos de prueba y la infla: declarar `commands.coverage` con `--cov=<paquete>` para medir solo el código fuente.
 - Un proyecto Python con `package.json` en la raíz se detecta como Node: fijar `stack_profile: python`. Con solo `setup.py`/`Pipfile`, o `requirements.txt` en una subcarpeta, declarar `commands.install`.
