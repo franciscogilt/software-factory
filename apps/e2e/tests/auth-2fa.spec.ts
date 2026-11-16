@@ -86,6 +86,8 @@ test.describe('owner resets a colleague two-step verification', () => {
     const danToken = await signInAs(context, 'dani@example.test');
     await enrollAndVerify('dani@example.test', danToken);
     const orgId = await orgIdByName('Acme Demo');
+    const emailJobs = async () => db.select().from(jobs).where(and(eq(jobs.type, 'email.send'), eq(jobs.organizationId, orgId)));
+    const emailsBefore = (await emailJobs()).length;
 
     await page.goto(`/app/org/${orgId}`);
     const anaRow = page.getByRole('row', { name: /ana@example\.test/ });
@@ -106,9 +108,12 @@ test.describe('owner resets a colleague two-step verification', () => {
     await expect(anaPage).toHaveURL(/\/app\/security/);
     await anaCtx.close();
 
-    // The affected user is notified through the job queue.
-    const notices = await db.select().from(jobs).where(and(eq(jobs.type, 'email.send'), eq(jobs.organizationId, orgId)));
-    expect(notices.some((j) => j.payload.to === 'ana@example.test')).toBe(true);
+    // The affected user is notified through the job queue. Where a real worker runs (staging) it may already have sent the
+    // email and cleared the payload (no personal data is kept), so count the new job instead of reading the recipient.
+    const notices = await emailJobs();
+    expect(notices.length).toBeGreaterThan(emailsBefore);
+    const pending = notices.filter((j) => j.status !== 'succeeded');
+    for (const j of pending) expect(j.payload.to).toBe('ana@example.test');
   });
 
   test('an owner cannot reset their own verification', async ({ page, context }) => {
