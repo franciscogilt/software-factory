@@ -5,6 +5,18 @@ type: saas            # saas | custom
 validation: pending   # pending | approved (SaaS propio: el dueño aprueba nicho y MVP antes del primer ticket)
 origin: new           # new | existing (existing exige completar la incorporación antes del primer ticket)
 stack: default        # default | custom (requiere ADR)
+# Solo para productos que NO usan el stack por defecto (Python, .NET, Java/Kotlin, Node propio...).
+# Si `commands:` existe, las puertas y la incorporación usan estos comandos en vez de los del starter kit.
+# stack_profile: auto   # auto | node | python | dotnet | jvm
+# commands:             # un paso por clave; encadena con " && "; sin shell (no se admiten ; | > < $ `)
+#   install: ""
+#   build: ""
+#   typecheck: ""
+#   lint: ""
+#   test: ""            # obligatorio: sin él las puertas fallan
+#   coverage: ""
+#   coverage_report: "" # coverage.xml | coverage/*/coverage.cobertura.xml | target/site/jacoco/jacoco.xml | coverage/coverage-summary.json
+#   dev: ""
 work_tracker: github  # github | azure-devops | jira | factory-panel
 repo_host: github     # github | azure-devops
 ci: github-actions    # github-actions | azure-pipelines
