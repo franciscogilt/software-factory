@@ -68,3 +68,14 @@ export function onboardingStatus(root: string): 'no-aplica' | 'pendiente' | 'com
   if (readConfigOrigin(root) !== 'existing') return 'no-aplica';
   return readJsonFile<OnboardingState>(join(root, ONBOARDING_DIR, 'state.json'))?.status === 'completo' ? 'completo' : 'pendiente';
 }
+
+// "Sin validación, no se construye": a new SaaS declares `validation: pending` until the owner approves the niche and the MVP.
+export function discoveryStatus(root: string): 'no-aplica' | 'pendiente' | 'aprobada' {
+  const p = join(root, 'product.config.yaml');
+  if (!existsSync(p)) return 'no-aplica';
+  const text = readFileSync(p, 'utf8');
+  const v = /^validation:\s*(\w[\w-]*)/m.exec(text)?.[1];
+  if (v === 'pending') return 'pendiente';
+  if (v === 'approved') return 'aprobada';
+  return 'no-aplica';
+}

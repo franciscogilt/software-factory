@@ -192,3 +192,28 @@ describe('onboardingStatus and intake', () => {
     await expect(runIntake({ ...base, onboarding: 'no-aplica' })).resolves.toBeDefined();
   });
 });
+
+describe('discoveryStatus and repo detection', () => {
+  const limits: Limits = { costPerTaskUsd: 5, minutesPerTask: 120, maxRetries: 3, maxConcurrentJobs: 2, autoTicketsPerDay: 5 };
+  const tracker: Tracker = { name: 'github', listLabeled: async () => [], labeler: async () => null, comment: async () => undefined };
+  it('reads the validation state of a new SaaS', async () => {
+    const { discoveryStatus } = await import('./gate.ts');
+    expect(discoveryStatus(project({}))).toBe('no-aplica');
+    expect(discoveryStatus(project({ 'product.config.yaml': 'type: saas\nvalidation: pending   # nota\n' }))).toBe('pendiente');
+    expect(discoveryStatus(project({ 'product.config.yaml': 'validation: approved\n' }))).toBe('aprobada');
+  });
+  it('makes the orchestrator refuse tickets until the owner approves the validation', async () => {
+    const base = { tracker, existing: [], limits, now: new Date(), stopped: false };
+    await expect(runIntake({ ...base, discovery: 'pendiente' })).rejects.toThrow(/validación/);
+    await expect(runIntake({ ...base, discovery: 'aprobada' })).resolves.toBeDefined();
+  });
+  it('finds owner/repo from the environment or the remote', async () => {
+    const { defaultRepo, parseRepo } = await import('../repo.ts');
+    expect(parseRepo('https://github.com/franciscogilt/agenda-citas.git')).toBe('franciscogilt/agenda-citas');
+    expect(parseRepo('git@github.com:o/r.git')).toBe('o/r');
+    expect(parseRepo('http://local_proxy@127.0.0.1:1234/git/o/r')).toBe('o/r');
+    expect(defaultRepo({ GITHUB_REPOSITORY: 'a/b' } as NodeJS.ProcessEnv)).toBe('a/b');
+    expect(defaultRepo({} as NodeJS.ProcessEnv, () => 'https://github.com/x/y.git')).toBe('x/y');
+    expect(() => defaultRepo({} as NodeJS.ProcessEnv, () => { throw new Error('no remote'); })).toThrow(/GITHUB_REPOSITORY/);
+  });
+});

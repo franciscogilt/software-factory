@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { classifyRisk, type Level } from './risk.ts';
 import { chooseMode } from './mode.ts';
 import { runGates } from './gates.ts';
+import { defaultRepo } from './repo.ts';
 import { decideMerge, type Check, type Review } from './merge.ts';
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -53,7 +54,7 @@ if (cmd === 'risk') {
   console.log(`${Object.keys(state.gates).length - failed.length}/${Object.keys(state.gates).length} puertas en verde`);
   process.exit(failed.length ? 1 : 0);
 } else if (cmd === 'merge') {
-  const repo = arg('repo') ?? process.env.GITHUB_REPOSITORY ?? 'franciscogilt/software-factory';
+  const repo = arg('repo') ?? defaultRepo();
   const pr = arg('pr');
   if (!pr) throw new Error('Falta --pr');
   const owner = process.env.FACTORY_OWNER ?? 'franciscogilt';
