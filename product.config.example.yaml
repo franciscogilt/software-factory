@@ -2,12 +2,13 @@
 # Solo el dueño confirma estos valores; los agentes no asumen los que falten.
 name: ""
 type: saas            # saas | custom
+validation: pending   # pending | approved (SaaS propio: el dueño aprueba nicho y MVP antes del primer ticket)
 origin: new           # new | existing (existing exige completar la incorporación antes del primer ticket)
 stack: default        # default | custom (requiere ADR)
 work_tracker: github  # github | azure-devops | jira | factory-panel
 repo_host: github     # github | azure-devops
 ci: github-actions    # github-actions | azure-pipelines
-cloud: aws            # aws | azure | gcp
+cloud: none           # none (Docker Compose, sin nube de pago) | aws | azure | gcp
 region: ""
 market: do
 payments: [azul, stripe]

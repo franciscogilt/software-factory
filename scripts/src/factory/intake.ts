@@ -67,9 +67,11 @@ export async function runIntake(opts: {
   now: Date;
   stopped: boolean;
   onboarding?: 'no-aplica' | 'pendiente' | 'completo';
+  discovery?: 'no-aplica' | 'pendiente' | 'aprobada';
 }): Promise<IntakeResult> {
   const result: IntakeResult = { started: [], queued: [], rejected: [] };
   if (opts.onboarding === 'pendiente') throw new Error('Proyecto existente sin incorporación completa: la red de seguridad debe pasar antes del primer ticket (onboard gate)');
+  if (opts.discovery === 'pendiente') throw new Error('SaaS sin validación aprobada: el dueño debe aprobar el nicho y el MVP (validation: approved en product.config.yaml) antes del primer ticket');
   if (opts.stopped) throw new Error('Interruptor de emergencia activo: no se inicia nada');
   const known = new Set(opts.existing.map((j) => `${j.ticket.tracker}:${j.ticket.id}`));
   const open = opts.existing.filter((j) => j.status === 'activo' || j.status === 'esperando-dueno').length;

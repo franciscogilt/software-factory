@@ -1,6 +1,7 @@
 // Orchestrator CLI. Run from a session: the session executes the agents; this script keeps state and enforces the rules.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { defaultRepo } from '../repo.ts';
 import { githubTracker, observationApi } from './github.ts';
 import { findingsFromMetrics, fingerprintMarker, selectNewTickets } from './observe.ts';
 import { runIntake, wrapUntrusted } from './intake.ts';
@@ -8,14 +9,14 @@ import { completeStage, ownerApproved, STAGES, type Job, type Level, type Stage 
 import { loadLimits } from './limits.ts';
 import { runEval, type EvalCase } from './evals.ts';
 import { checkSingleOutput, expectedOutput, VALIDATORS, type Role } from './outputs.ts';
-import { onboardingStatus } from '../onboard/gate.ts';
+import { discoveryStatus, onboardingStatus } from '../onboard/gate.ts';
 import { isStopped, jobPath, listJobFiles, readJson, writeJsonAtomic } from './store.ts';
 
 process.chdir(execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());
 
 const [cmd, ...rest] = process.argv.slice(2);
 const STATE = process.env.FACTORY_STATE_DIR ?? '.factory-state';
-const REPO = process.env.GITHUB_REPOSITORY ?? 'franciscogilt/software-factory';
+const REPO = defaultRepo();
 
 function arg(name: string): string | undefined {
   const i = rest.indexOf(`--${name}`);
@@ -51,7 +52,7 @@ async function main() {
 
   if (cmd === 'intake') {
     const tracker = githubTracker(REPO);
-    const r = await runIntake({ tracker, existing: loadJobs(), limits, now, stopped: isStopped(STATE), onboarding: onboardingStatus(process.env.FACTORY_PRODUCT_DIR ?? process.cwd()) });
+    const r = await runIntake({ tracker, existing: loadJobs(), limits, now, stopped: isStopped(STATE), onboarding: onboardingStatus(process.env.FACTORY_PRODUCT_DIR ?? process.cwd()), discovery: discoveryStatus(process.env.FACTORY_PRODUCT_DIR ?? process.cwd()) });
     for (const job of r.started) {
       writeJsonAtomic(jobPath(STATE, job.id), job);
       await tracker.comment(job.ticket.id, `La fábrica tomó este ticket como trabajo \`${job.id}\`. Etapa inicial: entrada.`);

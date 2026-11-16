@@ -11,6 +11,10 @@ Scripts en `scripts/src/factory/`. No usan IA: llevan el estado y hacen cumplir 
 - `evals.ts` y `evals/`: casos por rol con salida buena y mala de referencia. Prueban que el validador acepta lo correcto y rechaza lo incorrecto, incluido un ticket con una orden inyectada.
 - `store.ts`: estado en `.factory-state/` (escritura atómica) e interruptor de emergencia por archivo.
 
+## Puertas de producto
+
+`factory intake` se niega a iniciar tickets si el producto declara `validation: pending` en `product.config.yaml` (SaaS propio: el dueño aprueba nicho y MVP y cambia a `approved`), o si es un proyecto existente sin incorporación completa. El repositorio sobre el que actúan los scripts sale de `GITHUB_REPOSITORY` o del remoto `origin`, de modo que la misma fábrica sirve para cualquier producto.
+
 ## Cómo se usa
 
 Ver `workflows/orquestador.WORKFLOW.md`. Comandos: `intake`, `status`, `ticket`, `stage`, `approve`, `check-output`, `eval`.
