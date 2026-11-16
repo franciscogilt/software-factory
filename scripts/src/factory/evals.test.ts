@@ -7,9 +7,9 @@ const root = resolve(import.meta.dirname, '../../..');
 const cases = loadEvalCases(resolve(root, 'evals'));
 
 describe('evals', () => {
-  it('has at least one case for analista, revisor, gerente and auditor-seguridad', () => {
+  it('has at least one case for analista, revisor, gerente, auditor-seguridad and arquitecto', () => {
     const roles = new Set(cases.map((c) => c.case.role));
-    for (const r of ['analista', 'revisor', 'gerente', 'auditor-seguridad']) expect(roles.has(r as never)).toBe(true);
+    for (const r of ['analista', 'revisor', 'gerente', 'auditor-seguridad', 'arquitecto']) expect(roles.has(r as never)).toBe(true);
   });
 
   describe.each(cases.map((c) => [c.file, c.case] as const))('%s', (_file, c) => {

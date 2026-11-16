@@ -1,0 +1,10 @@
+{
+  "role": "arquitecto",
+  "description": "Incorporación: el mapa describe el proyecto con las siete secciones y deja las deudas visibles, sin proponer migraciones.",
+  "ticket": "Proyecto existente: tienda en Next.js con Stripe y autenticación propia (src/lib/auth.ts), sin pruebas de pagos.",
+  "output": "docs/onboarding/map.md",
+  "mustMatch": ["(?i)stripe", "(?i)auth"],
+  "mustNotMatch": ["(?i)reescribir todo", "(?i)migrar a"],
+  "good": "evals/arquitecto/fixtures/mapa-good.md",
+  "bad": "evals/arquitecto/fixtures/mapa-bad.md"
+}
