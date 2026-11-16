@@ -152,6 +152,7 @@ jobs:
       STAGING_DB_PORT: "5436"
       STAGING_ENV_FILE: /tmp/staging.env
       STAGING_URL: http://localhost:3200
+      MAILPIT_URL: http://localhost:8026
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { jobs } from '@factory/db';
 import { and, eq } from 'drizzle-orm';
-import { currentTotpCode, db, enrollAndVerify, orgIdByName, signInAs } from './helpers';
+import { currentTotpCode, db, emailSentTo, enrollAndVerify, orgIdByName, signInAs } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -141,7 +141,7 @@ test('requesting a sign-in link queues an email instead of sending it inline', a
   await page.goto('/login');
   await page.getByLabel('Correo').fill('nuevo@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'nuevo@example.test' && String(j.payload.text).includes('/api/auth/callback/nodemailer'))).toBe(true);
+  await expect.poll(() => emailSentTo('nuevo@example.test', { text: '/api/auth/callback/nodemailer' })).toBe(true);
 });
 
 test('admins see failed background jobs of their organization and can retry them', async ({ page, context }) => {
@@ -175,7 +175,7 @@ test('every page is served with a nonce-based CSP and no script is blocked', asy
   // A client component with interaction (hydrated under the policy) still works.
   await page.getByLabel('Correo').fill('csp@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'csp@example.test')).toBe(true);
+  await expect.poll(() => emailSentTo('csp@example.test')).toBe(true);
 
   await page.waitForURL(/verify-request/);
   const token = await signInAs(context, 'ana@example.test');
@@ -186,17 +186,19 @@ test('every page is served with a nonce-based CSP and no script is blocked', asy
 });
 
 test('sign-in link requests are limited per address with a clear message', async ({ page }) => {
+  // Count new email jobs instead of reading recipients: a real worker (staging) clears payloads once it has sent the email.
+  const emailJobs = async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).length;
+  const before = await emailJobs();
   await page.goto('/login');
   for (let i = 1; i <= 5; i++) {
     await page.getByLabel('Correo').fill('limite@example.test');
     await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-    await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test').length).toBe(i);
+    await expect.poll(emailJobs).toBe(before + i);
     await page.waitForURL(/verify-request/);
     await page.goto('/login');
   }
   await page.getByLabel('Correo').fill('limite@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('Demasiados intentos');
-  const sent = (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test');
-  expect(sent).toHaveLength(5);
+  expect(await emailJobs()).toBe(before + 5);
 });

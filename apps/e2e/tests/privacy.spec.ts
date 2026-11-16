@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { auditLog, consents, jobs, sessions, termsAcceptances, users } from '@factory/db';
 import { and, eq } from 'drizzle-orm';
 import { purgeDueAccounts, DELETION_GRACE_MS } from '@factory/db';
-import { createTestUser, db, enrollAndVerify, signInAs, userIdByEmail } from './helpers';
+import { createTestUser, db, emailSentTo, enrollAndVerify, signInAs, userIdByEmail } from './helpers';
 import { randomUUID } from 'node:crypto';
 import { baseURL } from '../playwright.config';
 
@@ -85,8 +85,7 @@ test('deleting an account: sessions end, it can be cancelled, and it is erased a
   await expect(page).toHaveURL(`${baseURL}/`);
 
   expect(await db.select().from(sessions).where(eq(sessions.userId, userId))).toHaveLength(0);
-  const mails = await db.select().from(jobs).where(eq(jobs.type, 'email.send'));
-  expect(mails.some((j) => j.payload.to === email && String(j.payload.subject).includes('eliminará'))).toBe(true);
+  await expect.poll(() => emailSentTo(email, { subject: 'eliminará' })).toBe(true);
 
   // Signing in again during the grace period only offers to cancel; the organization stays closed.
   const again = await browser.newContext();
