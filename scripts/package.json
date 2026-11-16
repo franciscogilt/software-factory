@@ -9,7 +9,8 @@
     "risk": "tsx src/cli.ts risk",
     "gates": "tsx src/cli.ts gates",
     "merge": "tsx src/cli.ts merge",
-    "factory": "tsx src/factory/cli.ts"
+    "factory": "tsx src/factory/cli.ts",
+    "rollout": "tsx src/deploy/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

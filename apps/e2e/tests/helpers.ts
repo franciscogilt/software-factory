@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createDb, memberships, mfaSessions, sessions, termsAcceptances, userTotp, users, organizations } from '@factory/db';
+import { createDb, jobs, memberships, mfaSessions, sessions, termsAcceptances, userTotp, users, organizations } from '@factory/db';
 import { eq } from 'drizzle-orm';
 import { authenticator } from 'otplib';
 import type { BrowserContext } from '@playwright/test';
@@ -65,4 +65,21 @@ export async function createTestUser(email: string, options: { soleOwnerOf?: str
     await db.insert(memberships).values({ organizationId, userId, role: 'member' }).onConflictDoNothing();
   }
   return { userId, organizationId };
+}
+
+// True when an email to `to` was queued or already sent. Where a real worker runs (staging) it sends the email and clears the
+// queued payload, so the mail catcher (MAILPIT_URL) is consulted as well; it is the proof the message really left the app.
+export async function emailSentTo(to: string, match: { subject?: string; text?: string } = {}): Promise<boolean> {
+  const fits = (subject: unknown, text: unknown) =>
+    (!match.subject || String(subject).includes(match.subject)) && (!match.text || String(text).includes(match.text));
+  const queued = await db.select().from(jobs).where(eq(jobs.type, 'email.send'));
+  if (queued.some((j) => j.payload.to === to && fits(j.payload.subject, j.payload.text))) return true;
+  const mailpit = process.env.MAILPIT_URL;
+  if (!mailpit) return false;
+  const found = (await (await fetch(`${mailpit}/api/v1/search?query=${encodeURIComponent(`to:${to}`)}`)).json()) as { messages?: { ID: string; Subject: string }[] };
+  for (const m of found.messages ?? []) {
+    const full = (await (await fetch(`${mailpit}/api/v1/message/${m.ID}`)).json()) as { Subject: string; Text: string };
+    if (fits(full.Subject, full.Text)) return true;
+  }
+  return false;
 }

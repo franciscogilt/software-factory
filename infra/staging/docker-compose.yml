@@ -1,0 +1,53 @@
+# Staging: same images and same structure as production, with synthetic secrets and synthetic data only.
+# Images come from IMAGE_TAG (built by CI or `docker build`); nothing is built here, exactly like production.
+# Required variables (no defaults, so a missing secret fails loudly): AUTH_SECRET, MFA_ENCRYPTION_KEY,
+# METRICS_TOKEN, POSTGRES_PASSWORD. Generate throwaway values with `pnpm --filter @factory/scripts rollout staging-env`.
+name: factory-staging
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: factory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: factory
+    ports: ["127.0.0.1:${STAGING_DB_PORT:-5436}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U factory"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    image: factory-migrate:${IMAGE_TAG:-staging}
+    environment:
+      DATABASE_URL: postgres://factory:${POSTGRES_PASSWORD}@db:5432/factory
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    image: factory-web:${IMAGE_TAG:-staging}
+    ports: ["127.0.0.1:${STAGING_WEB_PORT:-3200}:3000"]
+    environment:
+      DATABASE_URL: postgres://factory:${POSTGRES_PASSWORD}@db:5432/factory
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      AUTH_URL: http://localhost:${STAGING_WEB_PORT:-3200}
+      AUTH_TRUST_HOST: "true"
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?set MFA_ENCRYPTION_KEY}
+      METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN}
+      EMAIL_SERVER: smtp://mail:1025
+      EMAIL_FROM: Factory <no-reply@example.test>
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  worker:
+    image: factory-worker:${IMAGE_TAG:-staging}
+    environment:
+      DATABASE_URL: postgres://factory:${POSTGRES_PASSWORD}@db:5432/factory
+      EMAIL_SERVER: smtp://mail:1025
+      EMAIL_FROM: Factory <no-reply@example.test>
+      ALERT_EMAIL: owner@example.test
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  mail:
+    image: axllent/mailpit:v1.21
+    ports: ["127.0.0.1:${STAGING_MAIL_PORT:-8026}:8025"]

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { jobs } from '@factory/db';
 import { and, eq } from 'drizzle-orm';
-import { currentTotpCode, db, enrollAndVerify, orgIdByName, signInAs } from './helpers';
+import { currentTotpCode, db, emailSentTo, enrollAndVerify, orgIdByName, signInAs } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -86,6 +86,8 @@ test.describe('owner resets a colleague two-step verification', () => {
     const danToken = await signInAs(context, 'dani@example.test');
     await enrollAndVerify('dani@example.test', danToken);
     const orgId = await orgIdByName('Acme Demo');
+    const emailJobs = async () => db.select().from(jobs).where(and(eq(jobs.type, 'email.send'), eq(jobs.organizationId, orgId)));
+    const emailsBefore = (await emailJobs()).length;
 
     await page.goto(`/app/org/${orgId}`);
     const anaRow = page.getByRole('row', { name: /ana@example\.test/ });
@@ -106,9 +108,12 @@ test.describe('owner resets a colleague two-step verification', () => {
     await expect(anaPage).toHaveURL(/\/app\/security/);
     await anaCtx.close();
 
-    // The affected user is notified through the job queue.
-    const notices = await db.select().from(jobs).where(and(eq(jobs.type, 'email.send'), eq(jobs.organizationId, orgId)));
-    expect(notices.some((j) => j.payload.to === 'ana@example.test')).toBe(true);
+    // The affected user is notified through the job queue. Where a real worker runs (staging) it may already have sent the
+    // email and cleared the payload (no personal data is kept), so count the new job instead of reading the recipient.
+    const notices = await emailJobs();
+    expect(notices.length).toBeGreaterThan(emailsBefore);
+    const pending = notices.filter((j) => j.status !== 'succeeded');
+    for (const j of pending) expect(j.payload.to).toBe('ana@example.test');
   });
 
   test('an owner cannot reset their own verification', async ({ page, context }) => {
@@ -136,7 +141,7 @@ test('requesting a sign-in link queues an email instead of sending it inline', a
   await page.goto('/login');
   await page.getByLabel('Correo').fill('nuevo@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'nuevo@example.test' && String(j.payload.text).includes('/api/auth/callback/nodemailer'))).toBe(true);
+  await expect.poll(() => emailSentTo('nuevo@example.test', { text: '/api/auth/callback/nodemailer' })).toBe(true);
 });
 
 test('admins see failed background jobs of their organization and can retry them', async ({ page, context }) => {
@@ -170,7 +175,7 @@ test('every page is served with a nonce-based CSP and no script is blocked', asy
   // A client component with interaction (hydrated under the policy) still works.
   await page.getByLabel('Correo').fill('csp@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-  await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).some((j) => j.payload.to === 'csp@example.test')).toBe(true);
+  await expect.poll(() => emailSentTo('csp@example.test')).toBe(true);
 
   await page.waitForURL(/verify-request/);
   const token = await signInAs(context, 'ana@example.test');
@@ -181,17 +186,19 @@ test('every page is served with a nonce-based CSP and no script is blocked', asy
 });
 
 test('sign-in link requests are limited per address with a clear message', async ({ page }) => {
+  // Count new email jobs instead of reading recipients: a real worker (staging) clears payloads once it has sent the email.
+  const emailJobs = async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).length;
+  const before = await emailJobs();
   await page.goto('/login');
   for (let i = 1; i <= 5; i++) {
     await page.getByLabel('Correo').fill('limite@example.test');
     await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
-    await expect.poll(async () => (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test').length).toBe(i);
+    await expect.poll(emailJobs).toBe(before + i);
     await page.waitForURL(/verify-request/);
     await page.goto('/login');
   }
   await page.getByLabel('Correo').fill('limite@example.test');
   await page.getByRole('button', { name: 'Enviarme un enlace' }).click();
   await expect(page.locator('p[role="alert"]')).toContainText('Demasiados intentos');
-  const sent = (await db.select().from(jobs).where(eq(jobs.type, 'email.send'))).filter((j) => j.payload.to === 'limite@example.test');
-  expect(sent).toHaveLength(5);
+  expect(await emailJobs()).toBe(before + 5);
 });

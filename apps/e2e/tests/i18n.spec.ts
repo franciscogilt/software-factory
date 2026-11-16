@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { signInAs } from './helpers';
+import { baseURL } from '../playwright.config';
 
 test('the interface is Spanish by default and follows the browser language', async ({ page, browser }) => {
   await page.goto('/login');
@@ -8,7 +9,7 @@ test('the interface is Spanish by default and follows the browser language', asy
 
   const english = await browser.newContext({ locale: 'en-US', extraHTTPHeaders: { 'accept-language': 'en-US,en;q=0.9' } });
   const p = await english.newPage();
-  await p.goto('http://localhost:3100/login');
+  await p.goto(`${baseURL}/login`);
   await expect(p.locator('html')).toHaveAttribute('lang', 'en');
   await expect(p.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await english.close();

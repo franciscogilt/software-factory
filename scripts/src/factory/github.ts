@@ -41,3 +41,30 @@ export function githubTracker(repo: string, run: Runner = defaultRunner): Tracke
     },
   };
 }
+
+export interface ObservationApi {
+  listOpen(): { body: string; createdAt: string }[];
+  createdSince(since: Date): number;
+  create(title: string, body: string): number;
+}
+
+export const OBSERVATION_LABEL = 'origen:observacion';
+
+// Issues created by the post-release observation, so duplicates and the daily cap can be enforced.
+export function observationApi(repo: string, run: Runner = defaultRunner): ObservationApi {
+  const list = (state: 'open' | 'all', since?: Date) =>
+    JSON.parse(run(['api', `repos/${repo}/issues?labels=${encodeURIComponent(OBSERVATION_LABEL)}&state=${state}&per_page=100${since ? `&since=${since.toISOString()}` : ''}`])) as { body: string | null; created_at: string; pull_request?: unknown }[];
+  return {
+    listOpen: () => list('open').filter((i) => !i.pull_request).map((i) => ({ body: i.body ?? '', createdAt: i.created_at })),
+    createdSince: (since) => list('all', since).filter((i) => !i.pull_request && new Date(i.created_at) >= since).length,
+    create(title, body) {
+      try {
+        run(['api', '-X', 'POST', `repos/${repo}/labels`, '-f', `name=${OBSERVATION_LABEL}`]);
+      } catch {
+        // label already exists
+      }
+      const out = run(['api', '-X', 'POST', `repos/${repo}/issues`, '-f', `title=${title}`, '-f', `body=${body}`, '-f', 'labels[]=factory', '-f', `labels[]=${OBSERVATION_LABEL}`]);
+      return (JSON.parse(out) as { number: number }).number;
+    },
+  };
+}

@@ -141,6 +141,54 @@ jobs:
         run: |
           docker run --rm --network host -e DATABASE_URL -e BACKUP_DIR=/tmp/b factory-backup:ci \
             sh -c 'sh /app/backup.sh && sh /app/restore-check.sh "$(cat /tmp/b/latest)"'
+  staging:
+    # Runs the real images in the staging stack (synthetic secrets and data) and drives the whole e2e suite against them
+    # through the same release script used for deployments. This is the gate before any production deploy.
+    runs-on: ubuntu-latest
+    needs: check
+    env:
+      IMAGE_TAG: ci
+      STAGING_WEB_PORT: "3200"
+      STAGING_DB_PORT: "5436"
+      STAGING_ENV_FILE: /tmp/staging.env
+      STAGING_URL: http://localhost:3200
+      MAILPIT_URL: http://localhost:8026
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Synthetic staging secrets (throwaway, masked)
+        run: |
+          pnpm --silent --filter @factory/scripts rollout staging-env --out /tmp/staging.env
+          while IFS= read -r line; do
+            echo "::add-mask::${line#*=}"
+            echo "$line" >> "$GITHUB_ENV"
+          done < /tmp/staging.env
+      - name: Build images
+        run: |
+          docker build -f apps/web/Dockerfile -t factory-web:ci .
+          docker build -f packages/db/Dockerfile -t factory-migrate:ci .
+          docker build -f packages/jobs/Dockerfile -t factory-worker:ci .
+      - run: pnpm --filter @factory/e2e exec playwright install --with-deps chromium
+      - name: Release to staging (deploy, smoke tests, full e2e)
+        run: |
+          export DATABASE_URL="postgres://factory:${POSTGRES_PASSWORD}@127.0.0.1:5436/factory"
+          pnpm --silent --filter @factory/scripts rollout release --version ci --env staging
+      - name: Logs
+        if: failure()
+        run: docker compose -f infra/staging/docker-compose.yml --env-file /tmp/staging.env logs --no-color | tail -200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: staging-playwright-traces
+          path: apps/e2e/test-results
+      - name: Tear down
+        if: always()
+        run: docker compose -f infra/staging/docker-compose.yml --env-file /tmp/staging.env down -v
   e2e:
     runs-on: ubuntu-latest
     needs: check
