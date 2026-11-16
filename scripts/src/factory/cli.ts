@@ -8,6 +8,7 @@ import { completeStage, ownerApproved, STAGES, type Job, type Level, type Stage 
 import { loadLimits } from './limits.ts';
 import { runEval, type EvalCase } from './evals.ts';
 import { checkSingleOutput, expectedOutput, VALIDATORS, type Role } from './outputs.ts';
+import { onboardingStatus } from '../onboard/gate.ts';
 import { isStopped, jobPath, listJobFiles, readJson, writeJsonAtomic } from './store.ts';
 
 process.chdir(execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());
@@ -50,7 +51,7 @@ async function main() {
 
   if (cmd === 'intake') {
     const tracker = githubTracker(REPO);
-    const r = await runIntake({ tracker, existing: loadJobs(), limits, now, stopped: isStopped(STATE) });
+    const r = await runIntake({ tracker, existing: loadJobs(), limits, now, stopped: isStopped(STATE), onboarding: onboardingStatus(process.env.FACTORY_PRODUCT_DIR ?? process.cwd()) });
     for (const job of r.started) {
       writeJsonAtomic(jobPath(STATE, job.id), job);
       await tracker.comment(job.ticket.id, `La fábrica tomó este ticket como trabajo \`${job.id}\`. Etapa inicial: entrada.`);
