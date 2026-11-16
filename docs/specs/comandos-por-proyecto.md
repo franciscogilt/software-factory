@@ -27,7 +27,7 @@ No incluye: el instalador, CI para otros stacks, imágenes Docker por stack, ni 
 ## Criterios de aceptación
 
 - Dado un `product.config.yaml` con `commands:` válido, cuando se lee, entonces se obtienen los comandos por nombre; un valor con `&&` produce varios pasos.
-- Dado un comando con metacaracteres de shell (`; | $ \` > <`) o vacío entre `&&`, cuando se lee, entonces se rechaza con un error que nombra la clave.
+- Dado un comando con metacaracteres de shell (`; | $ \` > <`) fuera de comillas, o un paso vacío entre `&&`, cuando se lee, entonces se rechaza con un error que nombra la clave. Dentro de comillas se permiten (no hay shell).
 - Dado un proyecto con `pyproject.toml` o `requirements.txt`, o `*.csproj`/`*.sln`, o `pom.xml`/`build.gradle(.kts)`, cuando se escanea, entonces el perfil indica `python`, `dotnet` o `jvm`; sin marcador ni `package.json`, `desconocido`.
 - Dado un proyecto Node, cuando se corren las comprobaciones, entonces el comportamiento es idéntico al anterior (las pruebas actuales de incorporación siguen en verde sin cambios).
 - Dado un proyecto Python con pruebas en verde, cuando se corren `onboard check` y `onboard gate`, entonces instala, prueba, mide cobertura con coverage.py y la puerta evalúa igual que en Node. (Verificado de verdad con un proyecto de ejemplo.)
@@ -35,13 +35,18 @@ No incluye: el instalador, CI para otros stacks, imágenes Docker por stack, ni 
 - Dado un proyecto con `commands:`, cuando se ejecutan las puertas, entonces se ejecutan esos comandos; un paso que falla detiene los siguientes de esa puerta y la puerta queda en `fallo` con las últimas líneas.
 - Dado un producto sin `commands:`, cuando se ejecutan las puertas, entonces son exactamente las de hoy.
 - Dados archivos `alembic/versions/x.py`, `Migrations/2024_x.cs`, `db/migrate/x.rb`, `src/main/resources/db/migration/V2__x.sql`, entonces son nivel alto. Dados `requirements.txt`, `pyproject.toml`, `*.csproj`, `pom.xml`, `build.gradle`, entonces son al menos nivel medio. Dados `auth/login.py`, `AuthService.java`, `PermissionGuard.cs`, entonces son nivel alto.
-- Dado que las comprobaciones de un proyecto ajeno se ejecutan, entonces el entorno sigue siendo mínimo (sin secretos) y cada paso conserva su tiempo límite.
+- Dado que se ejecutan las comprobaciones de un proyecto o sus puertas derivadas, entonces el entorno es mínimo (sin secretos, con HOME privado) y cada paso tiene tiempo límite.
+- Dado un `coverage_report` con `..` o ruta absoluta, un informe viejo, un porcentaje fuera de 0–100 o `lines-valid=0`, entonces no se mide cobertura (nunca se inventa un número).
+- Dada una `stack_profile` inválida, una clave repetida o un `product.config.yaml` ilegible, entonces la puerta queda en rojo con el nombre de la clave; nunca verde ni una caída.
+- Dado un producto con `commands:` sin `test`, entonces la puerta de pruebas falla.
 
 ## Flujo crítico afectado
 
 Ninguno del producto. Cambia cómo la fábrica verifica proyectos de cualquier stack.
 
 ## Límites conocidos (se declaran, no se ocultan)
+
+El detalle completo está en `docs/modules/comandos-por-proyecto.md` (seguridad de la ejecución y límites). Resumen: sin shell no es aislamiento; con `commands:` se pierden las puertas de licencias y estructura del kit; la cobertura de Python por defecto cuenta las pruebas.
 
 - Los valores por defecto de `python` suponen Linux o macOS (`.venv/bin/`); en Windows hay que declarar `commands:`.
 - JaCoCo y coverlet deben estar configurados en el proyecto; si no, la cobertura sale «no medida» y la puerta de incorporación falla diciendo cómo corregirlo.

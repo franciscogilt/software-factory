@@ -1,8 +1,9 @@
 // Runs the existing project's own checks in a minimal environment (no secrets of the one running this), with time limits.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseSteps, readStackConfig, type CommandKey, type Commands, type Step } from '../stack/commands.ts';
-import { parseCoverageReport, readCoverage } from '../stack/coverage.ts';
+import { clearReports, parseCoverageReport, readCoverage } from '../stack/coverage.ts';
 import { effectiveCommands } from '../stack/profiles.ts';
 import type { Profile } from './scan.ts';
 
@@ -22,9 +23,17 @@ export interface CheckResult {
 }
 
 // No secrets of whoever runs this: only what toolchains need to find themselves (PATH, HOME, JAVA_HOME) plus quiet/CI flags.
-export const minimalEnv = (): NodeJS.ProcessEnv => ({
+// HOME is private to the project (`.factory-state/home`): a foreign project must not see the real HOME (cloud keys, tokens).
+// It is a mitigation, not isolation: run foreign projects in a disposable container (see docs/modules/incorporacion.md).
+export function privateHome(root: string): string {
+  const home = join(root, '.factory-state', 'home');
+  mkdirSync(home, { recursive: true });
+  return home;
+}
+
+export const minimalEnv = (root?: string): NodeJS.ProcessEnv => ({
   PATH: process.env.PATH,
-  HOME: process.env.HOME,
+  HOME: root ? privateHome(root) : process.env.HOME,
   ...(process.env.JAVA_HOME ? { JAVA_HOME: process.env.JAVA_HOME } : {}),
   CI: 'true',
   NODE_ENV: 'test',
@@ -70,7 +79,7 @@ function toolchain(p: Profile, declared: Commands | null) {
   };
 }
 
-export function runChecks(p: Profile, runner: Runner = defaultRunner, env = minimalEnv(), declared: Commands | null = readStackConfig(p.root).commands): CheckResult[] {
+export function runChecks(p: Profile, runner: Runner = defaultRunner, env = minimalEnv(p.root), declared: Commands | null = readStackConfig(p.root).commands): CheckResult[] {
   const tc = toolchain(p, declared);
   const results: CheckResult[] = [];
   const run = (name: CheckResult['name'], steps: Step[] | null, timeoutMs: number): boolean => {
@@ -101,7 +110,7 @@ export function runChecks(p: Profile, runner: Runner = defaultRunner, env = mini
 }
 
 // Coverage is measured with the project's own runner; null means it could not be measured.
-export function measureCoverage(p: Profile, runner: Runner = defaultRunner, env = minimalEnv(), declared: Commands | null = readStackConfig(p.root).commands): number | null {
+export function measureCoverage(p: Profile, runner: Runner = defaultRunner, env = minimalEnv(p.root), declared: Commands | null = readStackConfig(p.root).commands): number | null {
   const tc = toolchain(p, declared);
   let steps = tc.coverage;
   if (!steps) {
@@ -112,6 +121,7 @@ export function measureCoverage(p: Profile, runner: Runner = defaultRunner, env 
     steps = cmd ? [cmd] : null;
   }
   if (!steps) return null;
+  clearReports(p.root, tc.coverageReport);
   for (const [command, args] of steps) {
     if (runner(command, args, p.root, env, 900_000).status !== 0) return null;
   }

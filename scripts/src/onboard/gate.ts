@@ -36,7 +36,9 @@ export function evaluateSafetyNet(i: GateInput): { ok: boolean; problems: string
   for (const c of failed) problems.push(`el proyecto no pasa "${c.name}": arreglar eso es el primer trabajo`);
   const tests = i.checks.find((c) => c.name === 'pruebas');
   if (i.profile.testRunner === 'none' && i.profile.testFiles === 0) problems.push('sin red de seguridad: el proyecto no tiene pruebas');
-  if (!tests || tests.status === 'ausente') problems.push('el proyecto no tiene un script "test" que se pueda ejecutar');
+  if (!tests || tests.status === 'ausente') {
+    problems.push(i.profile.stack === 'node' ? 'el proyecto no tiene un script "test" que se pueda ejecutar' : `no hay comando de pruebas para el perfil ${i.profile.stack}: declarar commands.test en product.config.yaml`);
+  }
 
   const flows = i.net ? Object.entries(i.net.flows) : [];
   if (!i.net || flows.length === 0) problems.push('falta declarar flujos críticos con sus pruebas de caracterización (docs/onboarding/safety-net.json)');
@@ -44,7 +46,14 @@ export function evaluateSafetyNet(i: GateInput): { ok: boolean; problems: string
     const valid = files.filter((f) => CHARACTERIZATION.test(f) && i.exists(f));
     if (valid.length === 0) problems.push(`el flujo crítico "${flow}" no tiene pruebas de caracterización existentes (nombre con "characterization")`);
   }
-  if (i.coverage === null) problems.push('no se pudo medir la cobertura');
+  if (i.coverage === null) {
+    const how: Record<string, string> = {
+      python: 'instalar pytest-cov y declarar commands.coverage (genera coverage.xml)',
+      dotnet: 'añadir coverlet.collector y declarar commands.coverage con coverage_report coverage/*/coverage.cobertura.xml',
+      jvm: 'configurar el plugin JaCoCo (jacoco-maven-plugin o jacocoTestReport) y declarar coverage_report',
+    };
+    problems.push(i.profile.stack === 'node' ? 'no se pudo medir la cobertura' : `no se pudo medir la cobertura: ${how[i.profile.stack] ?? 'declarar commands.coverage y commands.coverage_report en product.config.yaml'}`);
+  }
   return { ok: problems.length === 0, problems };
 }
 

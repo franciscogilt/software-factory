@@ -21,7 +21,7 @@ Scripts en `scripts/src/onboard/` (comando `pnpm --filter @factory/scripts onboa
 
 ## Límites conocidos
 
-- `onboard check` ejecuta los scripts del proyecto (instalación incluida). Hacerlo solo en un contenedor desechable, nunca en una máquina con secretos: el entorno no lleva secretos, pero el sistema de archivos sí es accesible.
+- `onboard check` ejecuta los scripts del proyecto (instalación incluida). Hacerlo solo en un contenedor desechable, nunca en una máquina con secretos: el entorno no lleva secretos (y el HOME es privado del proyecto), pero el sistema de archivos sí es accesible.
 - El escaneo y las comprobaciones leen los scripts de la raíz; en monorepos con scripts por paquete, el arquitecto debe indicar cómo correrlos y se ajusta `safety-net.json`.
 - La cobertura se lee de `coverage-summary.json` (Vitest/Jest), Cobertura XML (coverage.py, coverlet) o JaCoCo XML; si el proyecto no genera uno de esos informes, la puerta falla hasta que se declare `commands.coverage` y `commands.coverage_report`.
 - La puerta exige que las pruebas existan, pasen y lleven el nombre; no juzga su calidad (eso lo revisa el revisor y las pruebas de mutación).

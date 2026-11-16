@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { minimalEnv } from './onboard/checks.ts';
 import { parseSteps, readStackConfig, type Commands, type Step } from './stack/commands.ts';
 
 export interface Gate {
@@ -10,6 +11,7 @@ export interface Gate {
   args: string[];
   tier: 'rapida' | 'completa';
   steps?: Step[]; // derived gates run several steps in order and stop at the first failure
+  sandbox?: boolean; // commands declared by the product run with a minimal env (no CI tokens) and a time limit
 }
 
 export const GATES: Gate[] = [
@@ -37,7 +39,7 @@ const DERIVED: { name: string; key: keyof Commands; tier: Gate['tier'] }[] = [
 export function gatesFromCommands(commands: Commands): Gate[] {
   const gates: Gate[] = DERIVED.filter((d) => commands[d.key]).map((d) => {
     const steps = parseSteps(commands[d.key]!);
-    return { name: d.name, command: steps[0]![0], args: steps[0]![1], tier: d.tier, steps };
+    return { name: d.name, command: steps[0]![0], args: steps[0]![1], tier: d.tier, steps, sandbox: true };
   });
   // A product without a test command must never look green: the missing gate fails loudly.
   if (!commands.test) {
@@ -65,7 +67,7 @@ export interface JobState {
 }
 
 // Docs gate: application or package code changed → some documentation must change too.
-const GENERIC_SOURCE = /\.(ts|tsx|js|jsx|mjs|py|java|kt|cs|go|rb|php|rs|sql)$/;
+const GENERIC_SOURCE = /\.(ts|tsx|js|jsx|mjs|vue|svelte|py|java|kt|kts|scala|cs|fs|go|rb|php|rs|swift|dart|ex|exs|c|cc|cpp|h|hpp|sql)$/;
 const GENERIC_TEST = /(\.test\.|\.spec\.|(^|\/)tests?\/|(^|\/)test_[^/]+\.py$|_test\.(py|go)$|(Test|Tests|IT)\.(java|kt)$|Tests?\.cs$|(^|\/)src\/test\/)/;
 
 export function docsGate(files: string[], generic = false): { ok: boolean; reason?: string } {
@@ -100,10 +102,12 @@ export function saveState(path: string, state: JobState): void {
   renameSync(tmp, path);
 }
 
+export const GATE_TIMEOUT_MS = 30 * 60 * 1000;
+
 export function runGate(gate: Gate): GateResult {
   const start = Date.now();
   for (const [command, args] of gate.steps ?? [[gate.command, gate.args] as Step]) {
-    const r = spawnSync(command, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync(command, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: GATE_TIMEOUT_MS, ...(gate.sandbox ? { env: minimalEnv(process.cwd()) } : {}) });
     if (r.status !== 0) {
       return { name: gate.name, status: 'fallo', ms: Date.now() - start, output: tail(`${r.stdout ?? ''}\n${r.stderr ?? ''}\n${r.error?.message ?? ''}`) };
     }
@@ -113,7 +117,17 @@ export function runGate(gate: Gate): GateResult {
 
 export function runGates(opts: { job: string; statePath: string; tier: 'rapida' | 'completa'; files: string[] }): JobState {
   const state = loadState(opts.statePath, opts.job);
-  const { gates, generic } = resolveGates();
+  let resolved: ReturnType<typeof resolveGates>;
+  try {
+    resolved = resolveGates();
+  } catch (e) {
+    // An invalid product.config.yaml must show up as a red gate, never as a crash or a silent green.
+    const state = loadState(opts.statePath, opts.job);
+    state.gates['configuracion'] = { name: 'configuracion', status: 'fallo', ms: 0, output: (e as Error).message };
+    saveState(opts.statePath, state);
+    return state;
+  }
+  const { gates, generic } = resolved;
   const selected = gates.filter((g) => opts.tier === 'completa' || g.tier === 'rapida');
   for (const gate of selected) {
     state.gates[gate.name] = runGate(gate); // re-running overwrites: no duplicated effects
