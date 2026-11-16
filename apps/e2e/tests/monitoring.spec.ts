@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { flowMetrics } from '@factory/db';
 import { eq } from 'drizzle-orm';
 import { db, signInAs } from './helpers';
+import { env } from '../playwright.config';
 
 test('readiness really checks the database', async ({ request }) => {
   const res = await request.get('/api/health/ready');
@@ -12,7 +13,7 @@ test('readiness really checks the database', async ({ request }) => {
 test('metrics are closed without the token and open with it', async ({ request }) => {
   expect((await request.get('/api/metrics')).status()).toBe(401);
   expect((await request.get('/api/metrics', { headers: { authorization: 'Bearer wrong' } })).status()).toBe(401);
-  const ok = await request.get('/api/metrics', { headers: { authorization: 'Bearer e2e-only-metrics-token' } });
+  const ok = await request.get('/api/metrics', { headers: { authorization: `Bearer ${env.METRICS_TOKEN}` } });
   expect(ok.status()).toBe(200);
   expect(await ok.text()).toContain('factory_queue_jobs{status="dead"}');
 });
@@ -26,6 +27,6 @@ test('a wrong two-step code is recorded as a refusal, not a failure, and shows i
   await expect(page.locator('p[role="alert"]')).toContainText('Código incorrecto');
   const rows = await db.select().from(flowMetrics).where(eq(flowMetrics.flow, 'twostep_code'));
   expect(rows.map((r) => r.outcome)).toEqual(['limited']);
-  const text = await (await request.get('/api/metrics', { headers: { authorization: 'Bearer e2e-only-metrics-token' } })).text();
+  const text = await (await request.get('/api/metrics', { headers: { authorization: `Bearer ${env.METRICS_TOKEN}` } })).text();
   expect(text).toContain('factory_flow_events{flow="twostep_code",outcome="limited",window="900s"} 1');
 });

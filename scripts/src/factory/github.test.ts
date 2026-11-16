@@ -52,3 +52,25 @@ describe('githubTracker', () => {
     expect((await t.labeler('1', 'factory'))?.permission).toBe('none');
   });
 });
+
+describe('observationApi', () => {
+  it('lists open observation tickets, counts today ones, and creates with both labels', async () => {
+    const { observationApi } = await import('./github.ts');
+    const calls: string[][] = [];
+    const api = observationApi('o/r', (args) => {
+      calls.push(args);
+      if (args[1] === '-X') return args.includes('repos/o/r/issues') ? '{"number":42}' : '{}';
+      return JSON.stringify([
+        { body: 'x', created_at: '2026-11-15T10:00:00Z' },
+        { body: 'y', created_at: '2026-11-14T10:00:00Z' },
+        { body: 'pr', created_at: '2026-11-15T11:00:00Z', pull_request: {} },
+      ]);
+    });
+    expect(api.listOpen()).toHaveLength(2);
+    expect(api.createdSince(new Date('2026-11-15T00:00:00Z'))).toBe(1);
+    expect(api.create('t', 'b')).toBe(42);
+    const create = calls.find((c) => c.includes('repos/o/r/issues'))!;
+    expect(create).toContain('labels[]=factory');
+    expect(create).toContain('labels[]=origen:observacion');
+  });
+});

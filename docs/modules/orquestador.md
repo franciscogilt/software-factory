@@ -23,6 +23,6 @@ Ver `workflows/orquestador.WORKFLOW.md`. Comandos: `intake`, `status`, `ticket`,
 
 - La prioridad usa etiquetas `impacto:`, `urgencia:` y `costo:` (alto, medio, bajo); sin etiqueta cuenta como medio.
 - El costo y los minutos de cada etapa los registra quien ejecuta la sesión; no se miden automáticamente.
-- El tope de tickets automáticos por día se aplicará con la observación posterior (parte 3).
+- El tope de tickets automáticos por día lo aplica `factory observe` (ver `docs/modules/staging-y-reversion.md`).
 - Las aprobaciones por panel y el botón de emergencia llegan con el panel de la fábrica; hoy el interruptor es un archivo.
 - Los agentes arquitecto, devops, diseñador y mejora siguen siendo esqueletos.

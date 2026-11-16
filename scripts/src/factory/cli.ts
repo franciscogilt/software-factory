@@ -1,7 +1,8 @@
 // Orchestrator CLI. Run from a session: the session executes the agents; this script keeps state and enforces the rules.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { githubTracker } from './github.ts';
+import { githubTracker, observationApi } from './github.ts';
+import { findingsFromMetrics, fingerprintMarker, selectNewTickets } from './observe.ts';
 import { runIntake, wrapUntrusted } from './intake.ts';
 import { completeStage, ownerApproved, STAGES, type Job, type Level, type Stage } from './jobs.ts';
 import { loadLimits } from './limits.ts';
@@ -99,6 +100,20 @@ async function main() {
     if (errors.length === 0) errors.push(...validate(readFileSync(expectedOutput(role, job), 'utf8')));
     if (errors.length) fail(errors.map((e) => `✘ ${e}`).join('\n'));
     console.log(`Salida de ${role} válida: ${expectedOutput(role, job)}`);
+  } else if (cmd === 'observe') {
+    // Turns production metrics into `factory` tickets: no duplicates, and at most autoTicketsPerDay per day.
+    if (isStopped(STATE)) fail('Interruptor de emergencia activo: no se crean tickets');
+    const url = need('metrics-url');
+    const token = process.env.METRICS_TOKEN;
+    if (!token) fail('Falta METRICS_TOKEN');
+    const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) fail(`Las métricas respondieron ${response.status}`);
+    const findings = findingsFromMetrics(await response.text());
+    const api = observationApi(REPO);
+    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const pick = selectNewTickets(findings, api.listOpen().map((t) => t.body), api.createdSince(startOfDay), limits.autoTicketsPerDay);
+    const created = rest.includes('--dry-run') ? [] : pick.create.map((f) => api.create(f.title, `${f.body}\n\n${fingerprintMarker(f.fingerprint)}`));
+    console.log(JSON.stringify({ hallazgos: findings.length, creados: created, duplicados: pick.duplicates, por_tope: pick.capped, simulacion: rest.includes('--dry-run') }, null, 2));
   } else if (cmd === 'eval') {
     // Scores an agent's output against an evaluation case: factory eval --case evals/analista/x.json --file <output>
     const c = JSON.parse(readFileSync(need('case'), 'utf8')) as EvalCase;
@@ -106,7 +121,7 @@ async function main() {
     if (errors.length) fail(errors.map((e) => `✘ ${e}`).join('\n'));
     console.log('Evaluación superada');
   } else {
-    console.error('Uso: factory intake|status|ticket|stage|approve|check-output|eval');
+    console.error('Uso: factory intake|status|ticket|stage|approve|check-output|eval|observe');
     process.exit(2);
   }
 }

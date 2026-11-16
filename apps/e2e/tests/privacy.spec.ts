@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { purgeDueAccounts, DELETION_GRACE_MS } from '@factory/db';
 import { createTestUser, db, enrollAndVerify, signInAs, userIdByEmail } from './helpers';
 import { randomUUID } from 'node:crypto';
+import { baseURL } from '../playwright.config';
 
 const fresh = () => `p-${randomUUID().slice(0, 8)}@example.test`;
 
@@ -50,7 +51,7 @@ test('a person downloads only their own data, without secrets, and it is audited
   expect(logged.length).toBeGreaterThan(0);
 
   const anon = await context.browser()!.newContext();
-  expect((await anon.request.get('http://localhost:3100/app/privacy/export')).status()).toBe(401);
+  expect((await anon.request.get(`${baseURL}/app/privacy/export`)).status()).toBe(401);
   await anon.close();
 });
 
@@ -81,7 +82,7 @@ test('deleting an account: sessions end, it can be cancelled, and it is erased a
   await page.goto('/app/privacy');
   await page.getByLabel(/Escribe tu correo/).fill(email);
   await page.getByRole('button', { name: 'Eliminar mi cuenta' }).click();
-  await expect(page).toHaveURL(/localhost:3100\/$/);
+  await expect(page).toHaveURL(`${baseURL}/`);
 
   expect(await db.select().from(sessions).where(eq(sessions.userId, userId))).toHaveLength(0);
   const mails = await db.select().from(jobs).where(eq(jobs.type, 'email.send'));
@@ -104,7 +105,7 @@ test('deleting an account: sessions end, it can be cancelled, and it is erased a
   await p3.goto('/app/privacy');
   await p3.getByLabel(/Escribe tu correo/).fill(email);
   await p3.getByRole('button', { name: 'Eliminar mi cuenta' }).click();
-  await expect(p3).toHaveURL(/localhost:3100\/$/); // the request finished before the context is closed
+  await expect(p3).toHaveURL(`${baseURL}/`); // the request finished before the context is closed
   await third.close();
   const result = await purgeDueAccounts(db, new Date(Date.now() + DELETION_GRACE_MS + 60_000));
   expect(result.purged.map((p) => p.email)).toContain(email);
@@ -119,6 +120,6 @@ test('a person with two-step verification must verify the session to download or
   expect((await context.request.get('/app/privacy/export')).status()).toBe(200);
   const other = await context.browser()!.newContext();
   await signInAs(other, 'dani@example.test'); // a second session, not verified
-  expect((await other.request.get('http://localhost:3100/app/privacy/export')).status()).toBe(403);
+  expect((await other.request.get(`${baseURL}/app/privacy/export`)).status()).toBe(403);
   await other.close();
 });
