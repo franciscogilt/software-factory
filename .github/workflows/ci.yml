@@ -46,9 +46,11 @@ jobs:
       - name: Classify risk
         id: risk
         run: |
-          pnpm --filter @factory/scripts risk --base "origin/${{ github.base_ref }}" > /tmp/risk.json
+          pnpm --silent --filter @factory/scripts risk --base "origin/${{ github.base_ref }}" > /tmp/risk.json
           cat /tmp/risk.json
-          echo "level=$(node -p "require('/tmp/risk.json').level")" >> "$GITHUB_OUTPUT"
+          LEVEL=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/risk.json','utf8')).level")
+          case "$LEVEL" in bajo|medio|alto) ;; *) echo "nivel inválido: '$LEVEL'"; exit 1;; esac
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
       - name: Label the PR
         env:
           GH_TOKEN: ${{ github.token }}
