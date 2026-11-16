@@ -24,6 +24,43 @@ jobs:
       - run: pnpm --filter @factory/db test
       - run: pnpm --filter @factory/jobs typecheck
       - run: pnpm --filter @factory/jobs test
+      - run: pnpm --filter @factory/scripts typecheck
+      - run: pnpm --filter @factory/scripts test
+  risk:
+    # Classifies the PR by the files it touches and labels it. Only raises the label, never lowers it by hand.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Classify risk
+        id: risk
+        run: |
+          pnpm --silent --filter @factory/scripts risk --base "origin/${{ github.base_ref }}" > /tmp/risk.json
+          cat /tmp/risk.json
+          LEVEL=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/risk.json','utf8')).level")
+          case "$LEVEL" in bajo|medio|alto) ;; *) echo "nivel inválido: '$LEVEL'"; exit 1;; esac
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+      - name: Label the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.event.pull_request.number }}
+          for l in bajo medio alto; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/labels" -f name="risk:$l" >/dev/null 2>&1 || true
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$N/labels/risk:$l" >/dev/null 2>&1 || true
+          done
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$N/labels" -f "labels[]=risk:${{ steps.risk.outputs.level }}"
   image:
     runs-on: ubuntu-latest
     needs: check
