@@ -1,0 +1,10 @@
+{
+  "role": "auditor-seguridad",
+  "description": "Endpoint que lee datos sin filtrar por organización: debe ser un hallazgo crítico.",
+  "ticket": "Diferencia: GET /api/orgs/[id]/members devuelve los miembros por id sin comprobar que el usuario pertenezca a esa organización.",
+  "output": ".factory-state/jobs/eval-endpoint/security-review.md",
+  "mustMatch": ["Hallazgos críticos: [1-9]", "(?i)organizaci"],
+  "mustNotMatch": ["Sin hallazgos"],
+  "good": "evals/auditor-seguridad/fixtures/endpoint-good.md",
+  "bad": "evals/auditor-seguridad/fixtures/endpoint-bad.md"
+}

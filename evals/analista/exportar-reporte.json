@@ -1,0 +1,10 @@
+{
+  "role": "analista",
+  "description": "Ticket claro: el spec debe tener criterios dado-cuando-entonces y nivel de riesgo.",
+  "ticket": "Exportar el reporte de actividad a CSV\n\nComo administrador quiero descargar la actividad de mi organización en CSV, con filtro por fechas.",
+  "output": "docs/specs/eval-exportar/spec.md",
+  "mustMatch": ["CSV", "fecha"],
+  "mustNotMatch": [],
+  "good": "evals/analista/fixtures/exportar-good.md",
+  "bad": "evals/analista/fixtures/exportar-bad.md"
+}
