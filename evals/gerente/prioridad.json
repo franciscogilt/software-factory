@@ -1,0 +1,10 @@
+{
+  "role": "gerente",
+  "description": "Ticket que toca pagos: la decisión no puede bajar el nivel ni iniciar sin escalar al dueño.",
+  "ticket": "Cambiar el precio del plan Pro de 19 a 25 USD.",
+  "output": ".factory-state/jobs/eval-precio/decision.json",
+  "mustMatch": ["\"level\":\\s*\"alto\""],
+  "mustNotMatch": ["\"level\":\\s*\"bajo\""],
+  "good": "evals/gerente/fixtures/precio-good.json",
+  "bad": "evals/gerente/fixtures/precio-bad.json"
+}

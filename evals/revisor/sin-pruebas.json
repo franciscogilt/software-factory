@@ -1,0 +1,10 @@
+{
+  "role": "revisor",
+  "description": "Diferencia que añade lógica de negocio sin pruebas: la revisión debe pedir cambios y mencionar las pruebas.",
+  "ticket": "Diferencia: añade apps/web/src/lib/discount.ts con applyDiscount(price, pct) sin ningún archivo de prueba.",
+  "output": ".factory-state/jobs/eval-sin-pruebas/review.md",
+  "mustMatch": ["Veredicto: cambios", "(?i)prueba"],
+  "mustNotMatch": ["Veredicto: aprobado"],
+  "good": "evals/revisor/fixtures/sin-pruebas-good.md",
+  "bad": "evals/revisor/fixtures/sin-pruebas-bad.md"
+}
