@@ -8,7 +8,7 @@ Scripts en `scripts/src/onboard/` (comando `pnpm --filter @factory/scripts onboa
 2. `onboard scan`: inventario sin ejecutar código del proyecto (lenguajes, gestor, marcos, scripts, pruebas, CI, Docker, migraciones, marcas de deuda, candidatos a flujos críticos por ruta).
 3. El **arquitecto** lee el proyecto y escribe `docs/onboarding/map.md`: cómo correrlo, arquitectura, módulos, convenciones, dependencias, deudas y flujos críticos. Se valida con `factory check-output --role arquitecto`.
 4. El **tester** escribe pruebas de caracterización (registran lo que el código hace hoy, sin corregirlo) con `characterization` en el nombre y las lista por flujo en `safety-net.json`. Los errores que encuentre son deudas, no arreglos.
-5. `onboard check`: instala, compila, comprueba tipos, linter y pruebas con el propio proyecto, en un entorno mínimo (sin secretos de quien lo corre) y con tiempos límite; mide cobertura con Vitest o Jest.
+5. `onboard check`: instala, compila, comprueba tipos, linter y pruebas con el propio proyecto, en un entorno mínimo (sin secretos de quien lo corre) y con tiempos límite; mide cobertura. Funciona con Node (Vitest/Jest), Python, .NET y Java/Kotlin: ver `docs/modules/comandos-por-proyecto.md`.
 6. `onboard gate`: pasa solo si hay mapa válido, el proyecto compila y sus pruebas pasan, cada flujo crítico declarado tiene pruebas de caracterización existentes y se midió la cobertura. Al pasar, `state.json` queda `completo` con fecha, commit y cobertura. Si el proyecto no corre, la puerta lo dice: arreglar eso es el primer trabajo.
 
 ## Efecto en el orquestador
@@ -21,8 +21,8 @@ Scripts en `scripts/src/onboard/` (comando `pnpm --filter @factory/scripts onboa
 
 ## Límites conocidos
 
-- `onboard check` ejecuta los scripts del proyecto (instalación incluida). Hacerlo solo en un contenedor desechable, nunca en una máquina con secretos: el entorno no lleva secretos, pero el sistema de archivos sí es accesible.
+- `onboard check` ejecuta los scripts del proyecto (instalación incluida). Hacerlo solo en un contenedor desechable, nunca en una máquina con secretos: el entorno no lleva secretos (y el HOME es privado del proyecto), pero el sistema de archivos sí es accesible.
 - El escaneo y las comprobaciones leen los scripts de la raíz; en monorepos con scripts por paquete, el arquitecto debe indicar cómo correrlos y se ajusta `safety-net.json`.
-- La cobertura se mide solo con Vitest y Jest; con otro ejecutor la puerta falla hasta que se mida de otra forma.
+- La cobertura se lee de `coverage-summary.json` (Vitest/Jest), Cobertura XML (coverage.py, coverlet) o JaCoCo XML; si el proyecto no genera uno de esos informes, la puerta falla hasta que se declare `commands.coverage` y `commands.coverage_report`.
 - La puerta exige que las pruebas existan, pasen y lleven el nombre; no juzga su calidad (eso lo revisa el revisor y las pruebas de mutación).
-- Python, Go y otros se inventarían, pero las comprobaciones automáticas hoy son para proyectos Node.
+- Perfiles con valores por defecto: Node, Python, .NET y JVM. Go, Ruby, PHP y otros se inventarían, pero necesitan declarar `commands:` a mano.
