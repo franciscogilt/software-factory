@@ -204,6 +204,6 @@ export function rootLevelFiles(root: string): string[] {
 
 // Installs get what package managers need (PATH, HOME, proxies, registries, CA bundles), not cloud or GitHub tokens.
 export function installEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const keep = /^(PATH|HOME|USER|LANG|TMPDIR|CI|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE|SSL_CERT_DIR|REQUESTS_CA_BUNDLE|(HTTPS?|NO|ALL)_PROXY|npm_config_.+|NPM_CONFIG_.+|PNPM_HOME|COREPACK_.+)$/i;
+  const keep = /^(PATH|HOME|USER|LANG|TMPDIR|CI|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE|SSL_CERT_DIR|REQUESTS_CA_BUNDLE|(HTTPS?|NO|ALL)_PROXY|npm_config_.+|NPM_CONFIG_.+|PNPM_HOME|COREPACK_.+|DOCKER_(HOST|CONTEXT|CONFIG|CERT_PATH|TLS_VERIFY)|XDG_RUNTIME_DIR)$/i;
   return Object.fromEntries(Object.entries(env).filter(([k]) => keep.test(k)));
 }

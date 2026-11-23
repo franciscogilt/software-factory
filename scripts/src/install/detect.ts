@@ -1,8 +1,9 @@
 // Detection and diagnosis for the installer. Nothing here writes to disk or installs software.
-import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, relative, resolve, isAbsolute } from 'node:path';
 import { join } from 'node:path';
 import type { Runner } from '../onboard/checks.ts';
+import { installEnv } from './kit.ts';
 
 export type Case = 'nuevo' | 'existente' | 'instalada';
 export type DbMode = 'docker' | 'local';
@@ -12,7 +13,12 @@ const NOISE = new Set(['.git', '.DS_Store', 'Thumbs.db']);
 
 export function detectCase(target: string): Case {
   if (!existsSync(target)) return 'nuevo';
-  if (existsSync(join(target, MARKER))) return 'instalada';
+  try {
+    lstatSync(join(target, MARKER)); // lstat: a dangling link must count as "something is here"
+    return 'instalada';
+  } catch {
+    // no marker
+  }
   return readdirSync(target).some((e) => !NOISE.has(e)) ? 'existente' : 'nuevo';
 }
 
@@ -50,7 +56,7 @@ export interface DoctorOptions {
 export function doctor(o: DoctorOptions): Problem[] {
   const platform = o.platform ?? process.platform;
   const problems: Problem[] = [];
-  const ok = (cmd: string, args: string[]) => o.run(cmd, args, process.cwd(), { PATH: process.env.PATH, HOME: process.env.HOME }, 20_000).status === 0;
+  const ok = (cmd: string, args: string[]) => o.run(cmd, args, process.cwd(), installEnv(), 20_000).status === 0;
   const need = (tool: string, why: string) => problems.push({ tool, why, fix: hint(tool, platform) });
 
   const major = Number((o.nodeVersion ?? process.version).replace(/^v/, '').split('.')[0]);
@@ -69,7 +75,7 @@ export function doctor(o: DoctorOptions): Problem[] {
 
 // Auto choice when the user gave none and there is no terminal to ask: Docker when it answers, else local Postgres.
 export function chooseDb(run: Runner): DbMode {
-  return run('docker', ['info'], process.cwd(), { PATH: process.env.PATH, HOME: process.env.HOME }, 20_000).status === 0 ? 'docker' : 'local';
+  return run('docker', ['info'], process.cwd(), installEnv(), 20_000).status === 0 ? 'docker' : 'local';
 }
 
 // Real path of something that may not exist yet: resolve its closest existing parent, then re-append the rest.

@@ -50,7 +50,13 @@ try {
   // not a git checkout
 }
 
-const report = bootstrap({ target, sourceRoot, db, name: arg('name'), type, databaseUrl: arg('database-url'), dryRun: flag('dry-run'), force: flag('force'), version });
+let report: ReturnType<typeof bootstrap>;
+try {
+  report = bootstrap({ target, sourceRoot, db, name: arg('name'), type, databaseUrl: arg('database-url'), dryRun: flag('dry-run'), force: flag('force'), version });
+} catch (e) {
+  console.error(`✘ ${(e as Error).message}`); // e.g. a symbolic link in the way: a clear message instead of a stack trace
+  process.exit(1);
+}
 
 console.log(`Destino: ${target}\nCaso: ${report.kind === 'nuevo' ? 'producto nuevo' : 'proyecto existente'}${report.dryRun ? ' (simulación: no se escribe nada)' : ''}\nBase de datos: ${report.kind === 'nuevo' ? db : 'no aplica (proyecto existente)'}`);
 for (const p of report.problems) console.log(`✘ Falta ${p.tool}: ${p.why}\n    Cómo instalarlo: ${p.fix}`);

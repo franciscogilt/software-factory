@@ -124,7 +124,10 @@ export function bootstrap(o: Options): Report {
 
   if (kind === 'nuevo') {
     // A new product is a new repository; no commit is made (the owner or the first PR does that).
-    if (!existsSync(join(o.target, '.git')) && run('git', ['init', '-q', '-b', 'main'], o.target, installEnv(), 30_000).status === 0) report.done.push('repositorio git iniciado (sin commits)');
+    const insideRepo = run('git', ['rev-parse', '--is-inside-work-tree'], o.target, installEnv(), 30_000).status === 0; // never nest a repository
+    if (!existsSync(join(o.target, '.git')) && !insideRepo && run('git', ['init', '-q', '-b', 'main'], o.target, installEnv(), 30_000).status === 0) report.done.push('repositorio git iniciado (sin commits)');
+    else if (insideRepo && !existsSync(join(o.target, '.git'))) report.done.push('aviso: la carpeta ya está dentro de otro repositorio git: no se creó uno nuevo');
+    if (o.db === 'docker' && o.databaseUrl) report.done.push('aviso: --database-url se ignora en modo docker (se usa la base del compose)');
     if (writeIfAbsent(o.target, 'README.md', productReadme(name))) report.done.push('README.md creado');
     for (const d of ['docs/specs', 'docs/lessons', 'docs/security', 'docs/continuity']) writeIfAbsent(o.target, `${d}/.gitkeep`, '');
     const example = join(o.target, '.env.example');

@@ -25,7 +25,8 @@ const KIT = {
 const ok = { status: 0, timedOut: false, output: '', ms: 1 };
 const recorder = (answers: (cmd: string, args: string[]) => Partial<typeof ok> = () => ({})) => {
   const calls: string[] = [];
-  const run: Runner = (cmd, args) => (calls.push(`${cmd} ${args.join(' ')}`), { ...ok, ...answers(cmd, args) });
+  const notInRepo = (cmd: string, args: string[]) => (cmd === 'git' && args[0] === 'rev-parse' ? { status: 1 } : {});
+  const run: Runner = (cmd, args) => (calls.push(`${cmd} ${args.join(' ')}`), { ...ok, ...notInRepo(cmd, args), ...answers(cmd, args) });
   return { calls, run };
 };
 const base = (source: string, target: string, extra: Partial<Options> = {}): Options => ({ target, sourceRoot: source, db: 'local', type: 'saas', dryRun: false, force: false, sleep: () => {}, nodeVersion: 'v22.1.0', version: 'abc', rootFiles: () => ['requirements.txt', 'app.py'], ...extra });
@@ -326,6 +327,7 @@ describe('security audit fixes', () => {
   it('installs run without cloud or GitHub tokens but keep proxies and registries (B6)', () => {
     const env = installEnv({ PATH: '/bin', HOME: '/h', GH_TOKEN: 'x', AWS_SECRET_ACCESS_KEY: 'y', ANTHROPIC_API_KEY: 'z', HTTPS_PROXY: 'p', npm_config_registry: 'r', NODE_EXTRA_CA_CERTS: 'c' });
     expect(Object.keys(env).sort()).toEqual(['HOME', 'HTTPS_PROXY', 'NODE_EXTRA_CA_CERTS', 'PATH', 'npm_config_registry']);
+    expect(Object.keys(installEnv({ DOCKER_HOST: 'unix:///x', DOCKER_CONTEXT: 'colima', XDG_RUNTIME_DIR: '/run/user/1' }))).toEqual(['DOCKER_HOST', 'DOCKER_CONTEXT', 'XDG_RUNTIME_DIR']);
   });
   it('copied files are normalized: no group or other write bits (B4)', () => {
     const target = join(tmpdir(), `mode-${Date.now()}`);
@@ -339,6 +341,23 @@ describe('security audit fixes', () => {
     const { calls, run } = recorder();
     bootstrap(base(tree(KIT), target, { run }));
     expect(calls).toContain('pnpm install --ignore-workspace --frozen-lockfile');
+  });
+});
+
+describe('second review fixes', () => {
+  it('warns that --database-url is ignored in docker mode, and does not nest a git repository', () => {
+    const target = join(tmpdir(), `n4-${Date.now()}`);
+    const { calls, run } = recorder();
+    const r = bootstrap(base(tree(KIT), target, { db: 'docker', databaseUrl: 'postgres://a:b@localhost/x', run }));
+    expect(r.done.join('\n')).toContain('--database-url se ignora');
+    const nested = bootstrap(base(tree(KIT), join(tmpdir(), `n6-${Date.now()}`), { run: recorder((c, a) => (c === 'git' && a[0] === 'rev-parse' ? { status: 0 } : {})).run }));
+    expect(nested.done.join('\n')).toContain('dentro de otro repositorio');
+    expect(calls.some((c) => c.startsWith('git init'))).toBe(true);
+  });
+  it('a dangling-link marker makes bootstrap fail cleanly (n3)', () => {
+    const target = tree({ 'app.py': 'x' });
+    symlinkSync('/no/existe/nada', join(target, MARKER));
+    expect(bootstrap(base(tree(KIT), target, { run: recorder().run })).ok).toBe(false);
   });
 });
 
