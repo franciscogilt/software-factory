@@ -31,7 +31,7 @@ No incluye: instalar Node/pnpm/Docker/Postgres, SQLite, hosting, CI del producto
 
 - Dada una carpeta inexistente o vacía, cuando se instala, entonces el modo es «nuevo»; dada una carpeta con archivos, «existente»; dada una con `product.config.yaml` y la marca de instalación, el instalador se niega con un mensaje claro.
 - Dado cualquier destino, cuando un archivo ya existe, entonces no se sobrescribe: se conserva y se informa. Si es `CLAUDE.md` o `AGENTS.md`, la versión de la fábrica se guarda como `CLAUDE.factory.md` / `AGENTS.factory.md` y se pide fusionarlas.
-- Dado `--dry-run`, entonces no se crea ni modifica ningún archivo ni se ejecuta ningún comando; la salida lista los archivos y pasos.
+- Dado `--dry-run`, entonces no se crea ni modifica ningún archivo y solo se ejecutan comprobaciones de versión (`--version`, `docker info`); la salida lista todos los archivos y los pasos.
 - Dado que falta Node ≥ 22, pnpm o git, o la herramienta del modo elegido, entonces el instalador se detiene antes de copiar nada y dice qué instalar (con la línea para el sistema detectado).
 - Dado un producto nuevo, cuando termina, entonces existen el kit, `product.config.yaml` con `validation: pending` y `origin: new`, `.env` con secretos generados al azar (nunca los del ejemplo) que `git` ignora, y la base de datos con las migraciones aplicadas.
 - Dado el modo `local`, entonces se usa `DATABASE_URL` si viene en el entorno o `--database-url`; si no, se propone `postgres://factory:factory@localhost:5432/<nombre>`; se verifica la conexión y se crea la base si no existe. Si no se puede conectar, se explica cómo y no se sigue.
@@ -41,6 +41,9 @@ No incluye: instalar Node/pnpm/Docker/Postgres, SQLite, hosting, CI del producto
 - Dado un `product.config.yaml` ya existente en el destino, entonces se conserva, y solo se informa de lo que falta.
 - Dado que un paso falla, entonces el instalador se detiene, dice qué se hizo y qué no, y es seguro volver a correrlo (repetir no duplica efectos ni sobrescribe).
 - Dado que el nombre del producto o la ruta contienen caracteres peligrosos para comandos (espacios, `;`, `$`, comillas), entonces el nombre se sanea para nombres de base de datos y ningún valor del usuario se interpola en un shell.
+- Dado un destino que coincide con el clon de la fábrica, lo contiene o está dentro de él, entonces se rechaza antes de escribir.
+- Dado un `.factory-kit.json` ilegible, entonces se rechaza con un mensaje; el marcador se escribe antes de copiar para que un corte a mitad no cambie el caso.
+- Dada una ruta con espacios o caracteres especiales, entonces la instalación y las migraciones funcionan.
 - Dado que los secretos generados y la cadena de conexión se muestran, entonces no se imprimen secretos en la salida (solo su existencia).
 
 ## Flujo crítico afectado

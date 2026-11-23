@@ -224,6 +224,49 @@ describe('bootstrap', () => {
   });
 });
 
+describe('review fixes', () => {
+  it('refuses a target that is, contains or sits inside the factory clone', () => {
+    const src = tree(KIT);
+    for (const target of [src, join(src, 'sub', 'prod'), dirname(src)]) {
+      const r = bootstrap(base(src, target, { run: recorder().run }));
+      expect(r.ok, target).toBe(false);
+      expect(r.failed).toContain('coincide');
+    }
+    expect(existsSync(join(src, 'sub'))).toBe(false);
+  });
+  it('an unreadable marker is refused, never guessed from the folder contents', () => {
+    const target = tree({ [MARKER]: '{ roto', 'app.py': 'x' });
+    const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
+    expect(r.ok).toBe(false);
+    expect(r.failed).toContain(MARKER);
+    expect(existsSync(join(target, 'CLAUDE.md'))).toBe(false);
+  });
+  it('a run cut after the marker but before the end resumes as a NEW product, not as existing', () => {
+    const src = tree(KIT);
+    const target = tree({ [MARKER]: JSON.stringify({ mode: 'nuevo', complete: false, version: 'x', db: 'local', installedAt: 'now' }), 'CLAUDE.md': '# factory', 'apps/web/src/page.tsx': 'p' });
+    const r = bootstrap(base(src, target, { run: recorder().run }));
+    expect(r.ok, r.failed ?? '').toBe(true);
+    expect(r.kind).toBe('nuevo');
+    expect(existsSync(join(target, '.env'))).toBe(true);
+    expect(existsSync(join(target, 'factory'))).toBe(false);
+  });
+  it('paths with spaces work and the next step quotes them', () => {
+    const target = join(mkdtempSync(join(tmpdir(), 'con espacio-')), 'mi producto');
+    const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
+    expect(r.ok, r.failed ?? '').toBe(true);
+    expect(r.next[0]).toBe(`cd ${JSON.stringify(target)}`);
+  });
+  it('dry run lists the steps it would take', () => {
+    const r = bootstrap(base(tree(KIT), join(tmpdir(), `dry2-${Date.now()}`), { dryRun: true, run: recorder().run }));
+    expect(r.done.length).toBeGreaterThan(3);
+  });
+  it('warns when scripts/ already existed and when .env is kept', () => {
+    const target = tree({ 'app.py': 'x', 'scripts/deploy.sh': 'x' });
+    const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
+    expect(r.done.join('\n')).toContain('ya tenía una carpeta scripts/');
+  });
+});
+
 describe('localPrepare', () => {
   it('explains how to create the role when the connection fails, and never puts the password in arguments', () => {
     const seen: { args: string[]; env: NodeJS.ProcessEnv }[] = [];

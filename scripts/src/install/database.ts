@@ -49,7 +49,7 @@ export function localPrepare(run: Runner, cwd: string, url: string): StepResult 
   if (probe.status !== 0) return { ok: false, message: `no se pudo conectar a PostgreSQL:\n${probe.output}\n${connectHelp(d)}` };
   const exists = psql('postgres', `select 1 from pg_database where datname = '${d.database}'`);
   if (exists.status !== 0) return { ok: false, message: `no se pudo consultar las bases de datos:\n${exists.output}` };
-  if (exists.output.trim() === '1') return { ok: true, message: `la base de datos «${d.database}» ya existe` };
+  if (exists.output.trim() === '1') return { ok: true, message: `la base de datos «${d.database}» ya existe: se le aplicarán las migraciones` };
   const created = psql('postgres', `create database "${d.database}"`);
   if (created.status !== 0) return { ok: false, message: `no se pudo crear la base «${d.database}» (el usuario necesita CREATEDB):\n${created.output}` };
   return { ok: true, message: `base de datos «${d.database}» creada` };

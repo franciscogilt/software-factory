@@ -52,10 +52,10 @@ for (const p of report.problems) console.log(`✘ Falta ${p.tool}: ${p.why}\n   
 if (report.plan) {
   const { plan } = report;
   console.log(`Archivos: ${plan.copy.length} se crearían/crearon, ${plan.same.length} ya iguales, ${plan.renamed.length} con versión .factory.md, ${plan.skipped.length} conservados sin tocar.`);
-  if (report.dryRun) for (const f of plan.copy.slice(0, 15)) console.log(`  + ${f.to}`);
+  if (report.dryRun) for (const f of plan.copy) console.log(`  + ${f.to}`);
   for (const f of plan.skipped.slice(0, 15)) console.log(`  = ${f} (ya existe y es distinto: no se toca)`);
 }
-for (const d of report.done) console.log(`✓ ${d}`);
+for (const d of report.done) console.log(`${report.dryRun ? '·' : '✓'} ${d}`);
 if (report.failed) {
   console.error(`\n✘ ${report.failed}${report.done.length ? '\nEs seguro volver a correr el instalador: no sobrescribe nada y retoma donde quedó.' : ''}`);
   process.exit(1);

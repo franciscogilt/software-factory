@@ -1,5 +1,6 @@
 // Detection and diagnosis for the installer. Nothing here writes to disk or installs software.
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { dirname, relative, resolve, isAbsolute } from 'node:path';
 import { join } from 'node:path';
 import type { Runner } from '../onboard/checks.ts';
 
@@ -69,4 +70,28 @@ export function doctor(o: DoctorOptions): Problem[] {
 // Auto choice when the user gave none and there is no terminal to ask: Docker when it answers, else local Postgres.
 export function chooseDb(run: Runner): DbMode {
   return run('docker', ['info'], process.cwd(), { PATH: process.env.PATH, HOME: process.env.HOME }, 20_000).status === 0 ? 'docker' : 'local';
+}
+
+// Real path of something that may not exist yet: resolve its closest existing parent, then re-append the rest.
+export function realish(p: string): string {
+  const abs = resolve(p);
+  let cur = abs;
+  const rest: string[] = [];
+  while (!existsSync(cur) && dirname(cur) !== cur) {
+    rest.unshift(cur.slice(dirname(cur).length + 1));
+    cur = dirname(cur);
+  }
+  return resolve(realpathSync(cur), ...rest);
+}
+
+const inside = (child: string, parent: string) => {
+  const r = relative(parent, child);
+  return r === '' || (!r.startsWith('..') && !isAbsolute(r));
+};
+
+// Installing into the factory clone itself (or into a folder that contains it) would write over the source.
+export function overlapsSource(target: string, sourceRoot: string): boolean {
+  const t = realish(target);
+  const s = realish(sourceRoot);
+  return inside(t, s) || inside(s, t);
 }
