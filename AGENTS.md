@@ -11,6 +11,7 @@
 | Lanzar a staging o producción | `workflows/despliegue.WORKFLOW.md` |
 | Incorporar un proyecto existente | `workflows/incorporacion.WORKFLOW.md` |
 | Producto en otro stack (Python, .NET, Java…) | `docs/modules/comandos-por-proyecto.md` |
+| Instalar la fábrica en una carpeta o proyecto | `docs/modules/instalador.md` |
 | Mejora de la fábrica | `docs/rules/mejora-continua.md` |
 
 Instrucciones por rol: `.claude/agents/`. Cada flujo tiene su `WORKFLOW.md` en `workflows/` (hoy: `workflows/fusion.WORKFLOW.md` `workflows/orquestador.WORKFLOW.md` `workflows/despliegue.WORKFLOW.md` y `workflows/incorporacion.WORKFLOW.md`).

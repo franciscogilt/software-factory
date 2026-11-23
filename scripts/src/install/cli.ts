@@ -16,7 +16,8 @@ const arg = (n: string) => {
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const target = resolve(arg('target') ?? process.cwd());
-const type = (arg('type') ?? 'saas') as 'saas' | 'custom';
+// Default: a folder with nothing is the owner's own SaaS; a project that already exists is treated as custom work.
+const type = (arg('type') ?? (detectCase(target) === 'nuevo' ? 'saas' : 'custom')) as 'saas' | 'custom';
 if (type !== 'saas' && type !== 'custom') {
   console.error('--type debe ser saas o custom');
   process.exit(2);

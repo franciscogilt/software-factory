@@ -32,3 +32,7 @@ pnpm --filter @factory/e2e test
 ```
 
 En CI se ejecutan contra un servicio PostgreSQL real.
+
+## Instalar en un producto
+
+`pnpm run bootstrap -- --target <carpeta>` (carpeta vacía o proyecto existente; con Docker o con PostgreSQL local). Detalle: `docs/modules/instalador.md`.
