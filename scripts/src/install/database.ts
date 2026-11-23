@@ -1,5 +1,6 @@
 // Database preparation for a new product. Docker mode starts the compose services; local mode uses a Postgres the owner already has.
 import type { Runner } from '../onboard/checks.ts';
+import { installEnv } from './kit.ts';
 
 export interface DbUrl {
   host: string;
@@ -10,11 +11,13 @@ export interface DbUrl {
 }
 
 export function parseDbUrl(url: string): DbUrl {
+  if (/[\u0000-\u001f\u007f\s]/.test(url)) throw new Error('la URL no puede llevar espacios ni saltos de línea');
   const u = new URL(url);
   if (u.protocol !== 'postgres:' && u.protocol !== 'postgresql:') throw new Error('DATABASE_URL debe empezar con postgres:// o postgresql://');
   const database = decodeURIComponent(u.pathname.replace(/^\//, ''));
   if (!/^[A-Za-z0-9_]{1,63}$/.test(database)) throw new Error('el nombre de la base de datos solo puede llevar letras, números y _ (máx. 63)');
-  return { host: u.hostname || 'localhost', port: u.port || '5432', user: decodeURIComponent(u.username), password: decodeURIComponent(u.password), database };
+  const host = u.hostname || 'localhost';
+  return { host, port: u.port || '5432', user: decodeURIComponent(u.username), password: decodeURIComponent(u.password), database };
 }
 
 // Credentials travel in PG* variables, never as command arguments (arguments show up in process lists).
@@ -28,7 +31,7 @@ export interface StepResult {
 }
 
 export function dockerUp(run: Runner, cwd: string, sleep: (ms: number) => void, waitMs = 90_000): StepResult {
-  const env = { ...process.env };
+  const env = installEnv();
   const up = run('docker', ['compose', ...COMPOSE_FILES, 'up', '-d', 'db', 'mail'], cwd, env, 300_000);
   if (up.status !== 0) return { ok: false, message: `docker compose up falló:\n${up.output}` };
   for (let waited = 0; waited <= waitMs; waited += 3000) {
@@ -56,6 +59,9 @@ export function localPrepare(run: Runner, cwd: string, url: string): StepResult 
 }
 
 export function migrate(run: Runner, cwd: string, url: string): StepResult {
-  const r = run('pnpm', ['--filter', '@factory/db', 'migrate'], cwd, { ...process.env, DATABASE_URL: url }, 300_000);
+  const r = run('pnpm', ['--filter', '@factory/db', 'migrate'], cwd, { ...installEnv(), DATABASE_URL: url }, 300_000);
   return r.status === 0 ? { ok: true, message: 'migraciones aplicadas' } : { ok: false, message: `las migraciones fallaron:\n${r.output}` };
 }
+
+// The installer creates databases and runs migrations: only on this machine, never on a remote server by accident.
+export const isLocalHost = (host: string) => ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);

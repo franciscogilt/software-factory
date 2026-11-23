@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { defaultRunner, type Runner } from '../onboard/checks.ts';
 import { detectCase, doctor, MARKER, overlapsSource, sanitizeName, type DbMode, type Problem } from './detect.ts';
-import { dockerUp, localPrepare, migrate, parseDbUrl } from './database.ts';
-import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
+import { dockerUp, isLocalHost, localPrepare, migrate, parseDbUrl } from './database.ts';
+import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, installEnv, isSafePath, lexists, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
 
 export interface Options {
   target: string;
@@ -45,15 +45,19 @@ interface Marker {
 const DEFAULT_URL = 'postgres://factory:factory@localhost:5432/factory';
 // null = no marker; 'corrupt' = a marker that cannot be read (never guess the case from the folder contents then).
 const readMarker = (target: string): Marker | 'corrupt' | null => {
-  if (!existsSync(join(target, MARKER))) return null;
+  if (!lexists(join(target, MARKER))) return null;
   try {
+    if (!isSafePath(target, MARKER)) return 'corrupt';
     const m = JSON.parse(readFileSync(join(target, MARKER), 'utf8')) as Marker;
     return (m.mode === 'nuevo' || m.mode === 'existente') && typeof m.complete === 'boolean' ? m : 'corrupt';
   } catch {
     return 'corrupt';
   }
 };
-const writeMarker = (target: string, m: Marker) => writeFileSync(join(target, MARKER), `${JSON.stringify(m, null, 2)}\n`);
+const writeMarker = (target: string, m: Marker) => {
+  if (!isSafePath(target, MARKER)) throw new Error(`${MARKER} es un enlace simbólico: se rechaza`);
+  writeFileSync(join(target, MARKER), `${JSON.stringify(m, null, 2)}\n`);
+};
 
 export function bootstrap(o: Options): Report {
   const run = o.run ?? defaultRunner;
@@ -95,6 +99,15 @@ export function bootstrap(o: Options): Report {
     return r.ok;
   };
 
+  // Everything that can be validated is validated before the first byte is written.
+  const url = o.db === 'docker' ? DEFAULT_URL : (o.databaseUrl ?? `postgres://factory:factory@localhost:5432/${name}`);
+  if (kind === 'nuevo') {
+    try {
+      if (!isLocalHost(parseDbUrl(url).host)) return fail('el instalador solo prepara bases de datos en esta máquina (localhost); para un servidor remoto crea la base a mano y pon su DATABASE_URL en .env');
+    } catch (e) {
+      return fail(`conexión no válida: ${(e as Error).message}`);
+    }
+  }
   mkdirSync(o.target, { recursive: true });
   // The marker goes first: if the process dies mid-copy, the retry still knows which case this was.
   const installedAt = marker?.installedAt ?? new Date().toISOString();
@@ -104,47 +117,40 @@ export function bootstrap(o: Options): Report {
   for (const r of plan.renamed) report.done.push(`${r.from} del proyecto se conservó; la versión de la fábrica quedó en ${r.to} (fusiónalas a mano)`);
 
   const rootFiles = (o.rootFiles ?? rootLevelFiles)(o.target);
-  if (writeIfAbsent(join(o.target, 'product.config.yaml'), productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null }))) report.done.push('product.config.yaml creado');
+  if (writeIfAbsent(o.target, 'product.config.yaml', productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null }))) report.done.push('product.config.yaml creado');
   else report.done.push('product.config.yaml ya existía: se conservó (revisa que tenga origin, stack_profile y commands: si es un proyecto existente)');
   if (kind === 'existente' && existsSync(join(o.target, 'scripts')) && plan.copy.some((c) => c.to.startsWith('scripts/')) && !marker) report.done.push('aviso: tu proyecto ya tenía una carpeta scripts/; los archivos de la fábrica se añadieron junto a los tuyos');
 
   if (kind === 'nuevo') {
     // A new product is a new repository; no commit is made (the owner or the first PR does that).
-    if (!existsSync(join(o.target, '.git')) && run('git', ['init', '-q', '-b', 'main'], o.target, { ...process.env }, 30_000).status === 0) report.done.push('repositorio git iniciado (sin commits)');
-    if (writeIfAbsent(join(o.target, 'README.md'), productReadme(name))) report.done.push('README.md creado');
-    for (const d of ['docs/specs', 'docs/lessons', 'docs/security', 'docs/continuity']) writeIfAbsent(join(o.target, d, '.gitkeep'), '');
-    const url = o.db === 'docker' ? DEFAULT_URL : (o.databaseUrl ?? process.env.DATABASE_URL ?? `postgres://factory:factory@localhost:5432/${name}`);
-    if (o.db === 'local' && !o.databaseUrl && process.env.DATABASE_URL) report.done.push('aviso: se usa DATABASE_URL del entorno; si esa base ya existe se le aplicarán las migraciones');
-    try {
-      parseDbUrl(url);
-    } catch (e) {
-      return fail(`conexión no válida: ${(e as Error).message}`);
-    }
+    if (!existsSync(join(o.target, '.git')) && run('git', ['init', '-q', '-b', 'main'], o.target, installEnv(), 30_000).status === 0) report.done.push('repositorio git iniciado (sin commits)');
+    if (writeIfAbsent(o.target, 'README.md', productReadme(name))) report.done.push('README.md creado');
+    for (const d of ['docs/specs', 'docs/lessons', 'docs/security', 'docs/continuity']) writeIfAbsent(o.target, `${d}/.gitkeep`, '');
     const example = join(o.target, '.env.example');
-    if (existsSync(example) && writeIfAbsent(join(o.target, '.env'), renderEnv(readFileSync(example, 'utf8'), url), 0o600)) report.done.push('.env creado con secretos de desarrollo generados al azar (no se muestran)');
+    if (existsSync(example) && writeIfAbsent(o.target, '.env', renderEnv(readFileSync(example, 'utf8'), url), 0o600)) report.done.push('.env creado con secretos de desarrollo generados al azar (no se muestran)');
     else if (existsSync(join(o.target, '.env'))) report.done.push('.env ya existía: se conservó (su DATABASE_URL puede no coincidir con la de esta ejecución)');
-    const install = run('pnpm', ['install', '--frozen-lockfile'], o.target, { ...process.env, CI: 'true' }, 900_000);
+    const install = run('pnpm', ['install', '--frozen-lockfile'], o.target, { ...installEnv(), CI: 'true' }, 900_000);
     if (install.status !== 0) return fail(`pnpm install falló:\n${install.output}`);
     report.done.push('dependencias instaladas');
     const dbOk = step(o.db === 'docker' ? 'base de datos (Docker)' : 'base de datos (local)', () => (o.db === 'docker' ? dockerUp(run, o.target, sleep) : localPrepare(run, o.target, url)));
     if (!dbOk || !step('migraciones', () => migrate(run, o.target, url))) return report;
     report.next = [
-      `cd ${JSON.stringify(o.target)}`,
+      `cd '${o.target.replace(/'/g, "'\\''")}'`,
       'pnpm --filter @factory/web dev   # app en http://localhost:3000',
       'Validar el nicho (docs/discovery/) y poner validation: approved en product.config.yaml antes del primer ticket',
     ];
   } else {
-    writeIfAbsent(join(o.target, '.factory-state', '.gitignore'), '*\n');
-    writeIfAbsent(join(o.target, 'scripts', '.gitignore'), 'node_modules/\n');
-    if (writeIfAbsent(join(o.target, 'factory'), FACTORY_WRAPPER, 0o755)) report.done.push('atajo ./factory creado');
-    const install = run('pnpm', ['install', '--ignore-workspace'], join(o.target, 'scripts'), { ...process.env, CI: 'true' }, 900_000);
+    writeIfAbsent(o.target, '.factory-state/.gitignore', '*\n');
+    writeIfAbsent(o.target, 'scripts/.gitignore', 'node_modules/\n');
+    if (writeIfAbsent(o.target, 'factory', FACTORY_WRAPPER, 0o755)) report.done.push('atajo ./factory creado');
+    const install = run('pnpm', ['install', '--ignore-workspace', '--frozen-lockfile'], join(o.target, 'scripts'), { ...installEnv(), CI: 'true' }, 900_000);
     if (install.status !== 0) return fail(`pnpm install (scripts/) falló:\n${install.output}`);
     report.done.push('herramientas de la fábrica instaladas en scripts/');
-    const init = run(join('scripts', 'node_modules', '.bin', 'tsx'), [join('scripts', 'src', 'onboard', 'cli.ts'), 'init', '--path', o.target], o.target, { ...process.env }, 120_000);
+    const init = run(join('scripts', 'node_modules', '.bin', 'tsx'), [join('scripts', 'src', 'onboard', 'cli.ts'), 'init', '--path', o.target], o.target, installEnv(), 120_000);
     if (init.status !== 0) return fail(`onboard init falló:\n${init.output}`);
     report.done.push('incorporación iniciada (docs/onboarding/)');
     report.next = [
-      `cd ${JSON.stringify(o.target)}`,
+      `cd '${o.target.replace(/'/g, "'\\''")}'`,
       'Revisar commands: en product.config.yaml (son valores por defecto del stack detectado)',
       'git checkout -b chore/instalar-fabrica && git add -A && git commit y abrir un PR (es nivel alto: lo apruebas tú)',
       './factory onboard check   # instala, prueba y mide cobertura del proyecto (mejor en un contenedor desechable si el proyecto no es tuyo)',

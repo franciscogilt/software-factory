@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, symlinkSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -6,7 +6,7 @@ import type { Runner } from '../onboard/checks.ts';
 import { readStackConfig } from '../stack/commands.ts';
 import { localPrepare, parseDbUrl } from './database.ts';
 import { chooseDb, detectCase, doctor, MARKER, sanitizeName } from './detect.ts';
-import { listKitFiles, planCopy, productConfig, renderEnv } from './kit.ts';
+import { installEnv, isSafePath, listKitFiles, planCopy, productConfig, renderEnv, SECRET_FILE } from './kit.ts';
 import { bootstrap, type Options } from './run.ts';
 
 function tree(files: Record<string, string>): string {
@@ -202,7 +202,7 @@ describe('bootstrap', () => {
     expect(cfg).toContain('origin: existing');
     expect(cfg).toContain('stack_profile: python');
     expect(statSync(join(target, 'factory')).mode & 0o111).not.toBe(0);
-    expect(calls).toContain('pnpm install --ignore-workspace');
+    expect(calls).toContain('pnpm install --ignore-workspace --frozen-lockfile');
     expect(calls.some((c) => c.includes('onboard/cli.ts init'))).toBe(true);
     expect(calls.some((c) => /psql|compose|migrate/.test(c))).toBe(false);
     expect(r.next.join(' ')).toContain('PR');
@@ -254,7 +254,7 @@ describe('review fixes', () => {
     const target = join(mkdtempSync(join(tmpdir(), 'con espacio-')), 'mi producto');
     const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
     expect(r.ok, r.failed ?? '').toBe(true);
-    expect(r.next[0]).toBe(`cd ${JSON.stringify(target)}`);
+    expect(r.next[0]).toBe(`cd '${target}'`);
   });
   it('dry run lists the steps it would take', () => {
     const r = bootstrap(base(tree(KIT), join(tmpdir(), `dry2-${Date.now()}`), { dryRun: true, run: recorder().run }));
@@ -264,6 +264,77 @@ describe('review fixes', () => {
     const target = tree({ 'app.py': 'x', 'scripts/deploy.sh': 'x' });
     const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
     expect(r.done.join('\n')).toContain('ya tenía una carpeta scripts/');
+  });
+});
+
+describe('security audit fixes', () => {
+  it('never writes through a symbolic link in the target (dangling file or linked folder) (A1)', () => {
+    const outside = tree({ 'secret.txt': 'AJENO' });
+    const target = tree({ 'app.py': 'x' });
+    symlinkSync(join(outside, 'no-existe.md'), join(target, 'CLAUDE.md')); // dangling link where the kit wants a file
+    symlinkSync(outside, join(target, 'docs')); // linked folder where the kit wants docs/rules/...
+    expect(isSafePath(target, 'CLAUDE.md')).toBe(false);
+    expect(isSafePath(target, 'docs/rules/stack.md')).toBe(false);
+    expect(isSafePath(target, 'otra/ruta.md')).toBe(true);
+    expect(isSafePath(target, '../fuera.md')).toBe(false);
+    const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
+    expect(existsSync(join(outside, 'no-existe.md'))).toBe(false);
+    expect(existsSync(join(outside, 'rules'))).toBe(false);
+    expect(readFileSync(join(outside, 'secret.txt'), 'utf8')).toBe('AJENO');
+    expect(r.plan?.skipped).toEqual(expect.arrayContaining(['CLAUDE.md', 'docs/rules/stack.md']));
+  });
+  it('a marker that is a symbolic link is refused and its target is untouched (A2)', () => {
+    const outside = tree({ 'precioso.txt': 'PRECIOUS' });
+    const target = tree({ 'app.py': 'x' });
+    symlinkSync(join(outside, 'precioso.txt'), join(target, MARKER));
+    const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
+    expect(r.ok).toBe(false);
+    expect(readFileSync(join(outside, 'precioso.txt'), 'utf8')).toBe('PRECIOUS');
+  });
+  it('secrets and links of the source never reach the kit, with or without git (A3, M1)', () => {
+    for (const f of ['.env', '.env.local', '.env.production', 'apps/web/.env', '.npmrc', '.ssh/id_rsa', 'llave.pem', 'a/server.key']) expect(SECRET_FILE.test(f), f).toBe(true);
+    for (const f of ['.env.example', 'docs/environment.md', 'apps/web/src/key.ts']) expect(SECRET_FILE.test(f), f).toBe(false);
+    const src = tree({ ...KIT, '.env': 'AUTH_SECRET=real', '.ssh/id_rsa': 'k' });
+    symlinkSync('/etc/hostname', join(src, 'enlace.md'));
+    const f = listKitFiles(src, 'nuevo', [...Object.keys(KIT), '.env', '.ssh/id_rsa', 'enlace.md']);
+    expect(f).not.toContain('.env');
+    expect(f).not.toContain('.ssh/id_rsa');
+    expect(f).not.toContain('enlace.md');
+    expect(f).toContain('.env.example');
+  });
+  it('--database-url with line breaks, spaces or a remote host is rejected before anything is written (M3, M4)', () => {
+    for (const url of ['postgres://u:p@localhost/db\nNODE_OPTIONS=--require x', 'postgres://u:p@localhost/db x', 'postgres://u:p@db.ejemplo.com:5432/prod']) {
+      const target = join(tmpdir(), `url-${Math.random()}`);
+      const r = bootstrap(base(tree(KIT), target, { run: recorder().run, databaseUrl: url }));
+      expect(r.ok, url).toBe(false);
+      expect(existsSync(target), url).toBe(false);
+    }
+  });
+  it('the environment DATABASE_URL is never used implicitly (M3)', () => {
+    process.env.DATABASE_URL = 'postgres://otro:x@localhost:5432/ajena';
+    const target = join(tmpdir(), `envurl-${Date.now()}`);
+    const { calls, run } = recorder();
+    bootstrap(base(tree(KIT), target, { run }));
+    delete process.env.DATABASE_URL;
+    expect(readFileSync(join(target, '.env'), 'utf8')).not.toContain('ajena');
+    expect(calls.join('\n')).not.toContain('ajena');
+  });
+  it('installs run without cloud or GitHub tokens but keep proxies and registries (B6)', () => {
+    const env = installEnv({ PATH: '/bin', HOME: '/h', GH_TOKEN: 'x', AWS_SECRET_ACCESS_KEY: 'y', ANTHROPIC_API_KEY: 'z', HTTPS_PROXY: 'p', npm_config_registry: 'r', NODE_EXTRA_CA_CERTS: 'c' });
+    expect(Object.keys(env).sort()).toEqual(['HOME', 'HTTPS_PROXY', 'NODE_EXTRA_CA_CERTS', 'PATH', 'npm_config_registry']);
+  });
+  it('copied files are normalized: no group or other write bits (B4)', () => {
+    const target = join(tmpdir(), `mode-${Date.now()}`);
+    const src = tree(KIT);
+    chmodSync(join(src, 'CLAUDE.md'), 0o666);
+    bootstrap(base(src, target, { run: recorder().run }));
+    expect(statSync(join(target, 'CLAUDE.md')).mode & 0o777).toBe(0o644);
+  });
+  it('existing-project tools install from the pinned lockfile', () => {
+    const target = tree({ 'app.py': 'x' });
+    const { calls, run } = recorder();
+    bootstrap(base(tree(KIT), target, { run }));
+    expect(calls).toContain('pnpm install --ignore-workspace --frozen-lockfile');
   });
 });
 

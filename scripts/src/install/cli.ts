@@ -15,7 +15,12 @@ const arg = (n: string) => {
 };
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const target = resolve(arg('target') ?? process.cwd());
+// No default: under `pnpm run` the current directory is the factory's own scripts/ folder.
+if (!arg('target')) {
+  console.error('Falta --target <carpeta>. Ejemplo: pnpm run bootstrap -- --target ~/proyectos/mi-producto');
+  process.exit(2);
+}
+const target = resolve(arg('target')!);
 // Default: a folder with nothing is the owner's own SaaS; a project that already exists is treated as custom work.
 const type = (arg('type') ?? (detectCase(target) === 'nuevo' ? 'saas' : 'custom')) as 'saas' | 'custom';
 if (type !== 'saas' && type !== 'custom') {
