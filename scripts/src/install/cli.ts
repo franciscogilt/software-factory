@@ -56,7 +56,7 @@ if (report.plan) {
 }
 for (const d of report.done) console.log(`✓ ${d}`);
 if (report.failed) {
-  console.error(`\n✘ ${report.failed}\nEs seguro volver a correr el instalador: no sobrescribe nada y retoma donde quedó.`);
+  console.error(`\n✘ ${report.failed}${report.done.length ? '\nEs seguro volver a correr el instalador: no sobrescribe nada y retoma donde quedó.' : ''}`);
   process.exit(1);
 }
 if (report.dryRun) process.exit(report.ok ? 0 : 1);

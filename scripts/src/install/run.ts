@@ -4,7 +4,7 @@ import { basename, join } from 'node:path';
 import { defaultRunner, type Runner } from '../onboard/checks.ts';
 import { detectCase, doctor, MARKER, sanitizeName, type DbMode, type Problem } from './detect.ts';
 import { dockerUp, localPrepare, migrate, parseDbUrl } from './database.ts';
-import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, writeIfAbsent, type CopyPlan } from './kit.ts';
+import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
 
 export interface Options {
   target: string;
@@ -93,11 +93,13 @@ export function bootstrap(o: Options): Report {
   const installedAt = marker?.installedAt ?? new Date().toISOString();
   writeMarker(o.target, { mode: kind, complete: false, version: o.version ?? 'desconocida', db: o.db, installedAt });
 
-  const rootFiles = (o.rootFiles ?? ((t) => listKitFiles(t, 'nuevo', undefined)))(o.target);
+  const rootFiles = (o.rootFiles ?? rootLevelFiles)(o.target);
   if (writeIfAbsent(join(o.target, 'product.config.yaml'), productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null }))) report.done.push('product.config.yaml creado');
   else report.done.push('product.config.yaml ya existía: se conservó');
 
   if (kind === 'nuevo') {
+    // A new product is a new repository; no commit is made (the owner or the first PR does that).
+    if (!existsSync(join(o.target, '.git')) && run('git', ['init', '-q', '-b', 'main'], o.target, { ...process.env }, 30_000).status === 0) report.done.push('repositorio git iniciado (sin commits)');
     if (writeIfAbsent(join(o.target, 'README.md'), productReadme(name))) report.done.push('README.md creado');
     for (const d of ['docs/specs', 'docs/lessons', 'docs/security', 'docs/continuity']) writeIfAbsent(join(o.target, d, '.gitkeep'), '');
     const url = o.db === 'docker' ? DEFAULT_URL : (o.databaseUrl ?? process.env.DATABASE_URL ?? `postgres://factory:factory@localhost:5432/${name}`);

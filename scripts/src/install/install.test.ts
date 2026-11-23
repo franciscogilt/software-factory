@@ -144,7 +144,7 @@ describe('bootstrap', () => {
     expect(statSync(join(target, '.env')).mode & 0o777).toBe(0o600);
     expect(existsSync(join(target, 'docs/specs/factory-only.md'))).toBe(false);
     expect(existsSync(join(target, 'docs/specs/.gitkeep'))).toBe(true);
-    expect(calls).toEqual(expect.arrayContaining(['pnpm install --frozen-lockfile', 'pnpm --filter @factory/db migrate']));
+    expect(calls).toEqual(expect.arrayContaining(['git init -q -b main', 'pnpm install --frozen-lockfile', 'pnpm --filter @factory/db migrate']));
     expect(calls.some((c) => c.startsWith('psql') && c.includes('create database "agenda"'))).toBe(true);
     expect(r.done.join('\n')).not.toMatch(/AUTH_SECRET=/);
   });

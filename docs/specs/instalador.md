@@ -9,7 +9,7 @@
 ## Decisiones tomadas sin el dueño presente (revisables en el PR)
 
 1. Comando: `pnpm run bootstrap -- --target <carpeta>` desde un clon de la fábrica (`pnpm install` y `pnpm setup` son comandos propios de pnpm, por eso `bootstrap`).
-2. El instalador **nunca sobrescribe** archivos del destino y **no hace commits ni toca git**. En proyectos existentes recomienda una rama y un PR.
+2. El instalador **nunca sobrescribe** archivos del destino y **no hace commits**; solo en un producto nuevo hace `git init` (sin commits). En proyectos existentes recomienda una rama y un PR.
 3. No instala software del sistema (Node, pnpm, Docker, Postgres) por su cuenta: lo verifica y dice cómo instalarlo en el sistema detectado. Descargar e instalar programas sin que el dueño lo vea es un riesgo que no se justifica.
 4. En proyectos existentes **no** se prepara base de datos (cada proyecto tiene la suya); eso queda para la incorporación.
 

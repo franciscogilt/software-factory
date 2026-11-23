@@ -15,7 +15,7 @@ export const CONFLICT_RENAMES: Record<string, string> = { 'CLAUDE.md': 'CLAUDE.f
 
 export function gitFiles(root: string): string[] {
   try {
-    return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\0').filter(Boolean);
+    return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean);
   } catch {
     const out: string[] = []; // a zip download has no git: walk the tree instead
     const walk = (dir: string) => {
@@ -147,3 +147,15 @@ case "$cmd" in
   *) echo "uso: ./factory <risk|gates|merge|factory|rollout|onboard> [args]" >&2; exit 2 ;;
 esac
 `;
+
+// Marker files for stack detection: the project root and one level down (enough for profiles, and cheap on huge trees).
+export function rootLevelFiles(root: string): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(root, { withFileTypes: true })) {
+    if (e.isFile()) out.push(e.name);
+    else if (e.isDirectory() && !WALK_IGNORE.has(e.name) && !e.name.startsWith('.')) {
+      for (const c of readdirSync(join(root, e.name), { withFileTypes: true })) if (c.isFile()) out.push(`${e.name}/${c.name}`);
+    }
+  }
+  return out;
+}
