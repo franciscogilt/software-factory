@@ -32,12 +32,17 @@ commands:
 ## Qué cambia en la fábrica
 
 - `onboard scan/check/gate`: reconocen el stack, ejecutan sus comandos con el mismo entorno mínimo y tiempos límite, y leen la cobertura del informe.
-- `gates`: si hay `commands:`, las puertas son compilación, tipos, linter y pruebas derivadas de ahí, más la de documentación (genérica: código en cualquier lenguaje). Sin `commands:`, son las del starter kit.
+- `gates`: si hay `commands:`, las puertas son instalación (primero; si falla, las demás quedan «no se ejecutó»), compilación, tipos, linter y pruebas derivadas de ahí, más la de documentación (genérica: código en cualquier lenguaje). Sin `commands:`, son las del starter kit.
 - Riesgo: migraciones (Alembic, EF Core, Flyway, Liquibase, Rails), autenticación, permisos, seguridad y pagos en cualquier lenguaje (por nombre de archivo o de carpeta), CI de otras plataformas y los scripts de `stack/` y `onboard/` son nivel alto; manifiestos de dependencias, al menos medio; `product.config.yaml` es nivel alto porque define qué corren las puertas.
 
 ## Cómo se prueba
 
 `pnpm --filter @factory/scripts test` (lector seguro de comandos, perfiles, escaneo de Python/.NET/Java, comprobaciones con ejecutor simulado, lectores de cobertura, puertas derivadas, riesgo). Además se probó de verdad con un proyecto Python de ejemplo: instalación en venv, pytest, cobertura 100%, puerta de incorporación en verde y puertas derivadas en verde y en rojo (prueba rota).
+
+## CI
+
+- Proyectos existentes: el instalador crea `.github/workflows/factory.yml` (si no existe), que en cada pull request detecta el perfil con `./factory onboard profile`, instala el toolchain (Python 3.12, .NET 8, Java 21 + Gradle) y corre `./factory gates`.
+- La propia fábrica prueba cada stack **de verdad** en el job `stacks` del CI: con los proyectos de `examples/stacks/` (Python, .NET, Maven y Gradle) corre el instalador, `onboard check` (compilación, pruebas y cobertura reales) y las puertas, en verde y con una prueba rota en rojo (`examples/stacks/e2e.sh`).
 
 ## Seguridad de la ejecución
 
@@ -58,6 +63,6 @@ commands:
 
 - Los valores por defecto de Python suponen Linux o macOS (`.venv/bin/`). En Windows hay que declarar `commands:`.
 - JaCoCo y coverlet deben estar configurados en el proyecto; si no, la cobertura sale «no medida» y la puerta de incorporación lo dice.
-- Java y .NET se verificaron con proyectos y salidas de ejemplo, **sin compilación real** (el entorno de desarrollo de la fábrica no puede descargar Maven ni NuGet). Hay que validarlos en una máquina con esas herramientas antes de confiar en ellos en un cliente.
-- El CI de GitHub Actions y las imágenes Docker siguen siendo las del starter kit; CI por stack es un trabajo aparte.
+- Las imágenes Docker siguen siendo las del starter kit (Node); no hay Dockerfile por stack.
+- El workflow de proyectos existentes usa versiones fijas de toolchain (Python 3.12, .NET 8, Java 21): ajústalas a tu proyecto.
 - Pruebas de mutación solo existen para la lógica del starter kit.

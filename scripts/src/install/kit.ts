@@ -128,12 +128,35 @@ export function writeIfAbsent(target: string, rel: string, content: string, mode
   return true;
 }
 
+// Existing Node projects: the gates need explicit commands, taken from the project's own package.json scripts.
+export function nodeCommands(target: string): Record<string, string> {
+  let scripts: Record<string, string> = {};
+  try {
+    scripts = (JSON.parse(readFileSync(join(target, 'package.json'), 'utf8')) as { scripts?: Record<string, string> }).scripts ?? {};
+  } catch {
+    return {};
+  }
+  const pm = existsSync(join(target, 'pnpm-lock.yaml')) ? 'pnpm' : existsSync(join(target, 'yarn.lock')) ? 'yarn' : existsSync(join(target, 'bun.lockb')) || existsSync(join(target, 'bun.lock')) ? 'bun' : 'npm';
+  const install = { pnpm: 'pnpm install --frozen-lockfile', yarn: 'yarn install --frozen-lockfile', bun: 'bun install --frozen-lockfile', npm: existsSync(join(target, 'package-lock.json')) ? 'npm ci' : 'npm install' }[pm];
+  const out: Record<string, string> = { install };
+  const pick = (key: string, ...names: string[]) => {
+    const n = names.find((x) => scripts[x]);
+    if (n) out[key] = `${pm} run ${n}`;
+  };
+  pick('build', 'build');
+  pick('typecheck', 'typecheck', 'type-check', 'tsc');
+  pick('lint', 'lint');
+  pick('test', 'test');
+  return out;
+}
+
 export interface ConfigInput {
   kind: Exclude<Case, 'instalada'>;
   name: string;
   type: 'saas' | 'custom';
   rootFiles: string[];
   configuredProfile: string | null;
+  nodeCommands?: Record<string, string>;
 }
 
 // The config states only what the installer knows; everything else keeps the example's questions for the owner.
@@ -148,7 +171,7 @@ export function productConfig(i: ConfigInput): string {
     lines.push('origin: new', 'stack: default');
   } else {
     const stack = resolveProfile(i.configuredProfile, i.rootFiles);
-    const cmds = effectiveCommands(stack, i.rootFiles, null);
+    const cmds = stack === 'node' ? (i.nodeCommands ?? {}) : effectiveCommands(stack, i.rootFiles, null);
     lines.push('origin: existing      # exige completar la incorporación antes del primer ticket', 'stack: custom');
     lines.push(`stack_profile: ${stack === 'desconocido' ? 'auto' : stack}`);
     lines.push('commands:             # revisa y corrige: son valores por defecto del perfil detectado');
@@ -212,3 +235,45 @@ export function installEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.Process
   const keep = /^(PATH|HOME|USER|LANG|TMPDIR|CI|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE|SSL_CERT_DIR|REQUESTS_CA_BUNDLE|(HTTPS?|NO|ALL)_PROXY|npm_config_.+|NPM_CONFIG_.+|PNPM_HOME|COREPACK_.+|DOCKER_(HOST|CONTEXT|CONFIG|CERT_PATH|TLS_VERIFY)|XDG_RUNTIME_DIR)$/i;
   return Object.fromEntries(Object.entries(env).filter(([k]) => keep.test(k)));
 }
+
+// Gates on every pull request of an existing project, whatever its stack. Written only if absent.
+export const FACTORY_WORKFLOW = `# Puertas de la fábrica en cada pull request (lo creó el instalador; edítalo si tu proyecto lo necesita).
+name: factory
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@10.28.0
+      - run: pnpm install --ignore-workspace --frozen-lockfile
+        working-directory: scripts
+      - id: stack
+        run: echo "profile=$(./factory onboard profile)" >> "$GITHUB_OUTPUT"
+      - if: steps.stack.outputs.profile == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: steps.stack.outputs.profile == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - if: steps.stack.outputs.profile == 'jvm'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - if: steps.stack.outputs.profile == 'jvm'
+        uses: gradle/actions/setup-gradle@v4
+      - name: Puertas
+        run: ./factory gates --base "origin/\${{ github.base_ref }}" --state .factory-state/gates.json
+`;

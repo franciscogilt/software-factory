@@ -55,3 +55,9 @@ El detalle completo está en `docs/modules/comandos-por-proyecto.md` (seguridad 
 ## Preguntas abiertas
 
 - Ninguna: el alcance y los stacks (Python, .NET, Java/Kotlin) los decidió el dueño.
+
+## Seguimiento (PR de CI por stack)
+
+- Dado `commands.install`, entonces la puerta de instalación corre primero; si falla, las demás quedan en rojo con «no se ejecutó: falló la instalación».
+- Dados los proyectos de ejemplo de Python, .NET, Maven y Gradle, cuando corre el CI, entonces el instalador, la incorporación (cobertura medida > 50%) y las puertas pasan, y con una prueba rota las puertas fallan.
+- Dado un proyecto existente, cuando se instala, entonces tiene un workflow de puertas por PR que prepara el toolchain de su perfil; en Node, `commands:` sale de sus scripts.

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.coverage
+coverage.xml
+coverage/
+bin/
+obj/
+target/
+build/
+.gradle/
+.factory-state/

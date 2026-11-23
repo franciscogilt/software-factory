@@ -4,7 +4,7 @@ import { basename, join } from 'node:path';
 import { defaultRunner, type Runner } from '../onboard/checks.ts';
 import { detectCase, doctor, MARKER, overlapsSource, sanitizeName, type DbMode, type Problem } from './detect.ts';
 import { dockerUp, isLocalHost, localPrepare, migrate, parseDbUrl } from './database.ts';
-import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, installEnv, isSafePath, lexists, foreignEntries, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
+import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, installEnv, isSafePath, lexists, FACTORY_WORKFLOW, foreignEntries, nodeCommands, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
 
 export interface Options {
   target: string;
@@ -123,7 +123,7 @@ export function bootstrap(o: Options): Report {
   for (const r of plan.renamed) report.done.push(`${r.from} del proyecto se conservó; la versión de la fábrica quedó en ${r.to} (fusiónalas a mano)`);
 
   const rootFiles = (o.rootFiles ?? rootLevelFiles)(o.target);
-  if (writeIfAbsent(o.target, 'product.config.yaml', productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null }))) report.done.push('product.config.yaml creado');
+  if (writeIfAbsent(o.target, 'product.config.yaml', productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null, nodeCommands: kind === 'existente' ? nodeCommands(o.target) : undefined }))) report.done.push('product.config.yaml creado');
   else report.done.push('product.config.yaml ya existía: se conservó (revisa que tenga origin, stack_profile y commands: si es un proyecto existente)');
   if (kind === 'existente' && hadScripts && plan.copy.some((c) => c.to.startsWith('scripts/')) && !marker) report.done.push('aviso: tu proyecto ya tenía una carpeta scripts/; los archivos de la fábrica se añadieron junto a los tuyos');
 
@@ -152,6 +152,7 @@ export function bootstrap(o: Options): Report {
     writeIfAbsent(o.target, '.factory-state/.gitignore', '*\n');
     writeIfAbsent(o.target, 'scripts/.gitignore', 'node_modules/\n');
     if (writeIfAbsent(o.target, 'factory', FACTORY_WRAPPER, 0o755)) report.done.push('atajo ./factory creado');
+    if (writeIfAbsent(o.target, '.github/workflows/factory.yml', FACTORY_WORKFLOW)) report.done.push('CI de puertas creado en .github/workflows/factory.yml (corre en cada pull request)');
     const install = run('pnpm', ['install', '--ignore-workspace', '--frozen-lockfile'], join(o.target, 'scripts'), { ...installEnv(), CI: 'true' }, 900_000);
     if (install.status !== 0) return fail(`pnpm install (scripts/) falló:\n${install.output}`);
     report.done.push('herramientas de la fábrica instaladas en scripts/');

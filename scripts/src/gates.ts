@@ -30,6 +30,7 @@ export const GATES: Gate[] = [
 
 // Products that declare `commands:` get their gates from there; everything else keeps the starter kit's gates.
 const DERIVED: { name: string; key: keyof Commands; tier: Gate['tier'] }[] = [
+  { name: 'instalacion', key: 'install', tier: 'rapida' }, // a clean CI runner has no dependencies: install comes first
   { name: 'compilacion', key: 'build', tier: 'rapida' },
   { name: 'tipos', key: 'typecheck', tier: 'rapida' },
   { name: 'linter', key: 'lint', tier: 'rapida' },
@@ -129,8 +130,11 @@ export function runGates(opts: { job: string; statePath: string; tier: 'rapida' 
   }
   const { gates, generic } = resolved;
   const selected = gates.filter((g) => opts.tier === 'completa' || g.tier === 'rapida');
+  let installFailed = false;
   for (const gate of selected) {
-    state.gates[gate.name] = runGate(gate); // re-running overwrites: no duplicated effects
+    // Without dependencies every later gate would fail for the wrong reason: say why instead of running them.
+    state.gates[gate.name] = installFailed ? { name: gate.name, status: 'fallo', ms: 0, output: 'no se ejecutó: falló la instalación' } : runGate(gate); // re-running overwrites: no duplicated effects
+    if (gate.name === 'instalacion' && state.gates[gate.name]!.status === 'fallo') installFailed = true;
     state.updatedAt = new Date().toISOString();
     saveState(opts.statePath, state);
   }
