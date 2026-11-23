@@ -30,8 +30,6 @@ services:
       migrate:
         condition: service_completed_successfully
   migrate:
-        condition: service_completed_successfully
-  migrate:
     # Migrations run as their own job before the app starts, never inside the app process.
     build:
       context: ..
