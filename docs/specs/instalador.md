@@ -53,7 +53,7 @@ Ninguno del producto. Es el punto de entrada de toda instalación nueva.
 ## Límites conocidos
 
 - Windows: el instalador usa rutas y comandos de Linux/macOS; en Windows se recomienda WSL. No se probó en Windows.
-- Docker y los contenedores no se pueden probar en el entorno de desarrollo de la fábrica (no hay demonio de Docker): el modo `docker` se verifica con un ejecutor simulado y por inspección; el modo `local` sí se prueba de verdad con un servidor Postgres.
+- Los modos `docker` y `local` se prueban de verdad en el job `bootstrap` del CI (Ubuntu). Cada producto usa su propio nombre de proyecto de Compose (`-p <nombre>`); como todos publican el puerto 5432, en una misma máquina se levanta la base de un producto a la vez.
 - El instalador no valida que el proyecto existente compile: eso lo hace la incorporación.
 
 ## Preguntas abiertas
