@@ -26,6 +26,42 @@ jobs:
       - run: pnpm --filter @factory/jobs test
       - run: pnpm --filter @factory/scripts typecheck
       - run: pnpm --filter @factory/scripts test
+  stacks:
+    # The factory on other stacks, for real: installer + onboarding (build, tests, coverage) + gates, green and red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [python, dotnet, maven, gradle]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: matrix.stack == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - if: matrix.stack == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - if: matrix.stack == 'maven' || matrix.stack == 'gradle'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - if: matrix.stack == 'gradle'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - run: examples/stacks/e2e.sh ${{ matrix.stack }}
   risk:
     # Classifies the PR by the files it touches and labels it. Only raises the label, never lowers it by hand.
     if: github.event_name == 'pull_request'

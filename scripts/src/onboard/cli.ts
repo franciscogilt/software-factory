@@ -18,7 +18,10 @@ const write = (name: string, data: unknown) => {
   writeFileSync(join(dir, name), typeof data === 'string' ? data : `${JSON.stringify(data, null, 2)}\n`);
 };
 
-if (cmd === 'scan') {
+if (cmd === 'profile') {
+  // Read-only: prints the stack profile (node | python | dotnet | jvm | desconocido), e.g. for CI to pick toolchains.
+  console.log(scanProject(root).stack);
+} else if (cmd === 'scan') {
   const profile = scanProject(root);
   write('profile.json', profile);
   console.log(JSON.stringify(profile, null, 2));
@@ -61,6 +64,6 @@ if (cmd === 'scan') {
   write('state.json', { status: 'completo', completedAt: new Date().toISOString(), commit, coverage: saved.coverage ?? undefined } satisfies OnboardingState);
   console.log('Red de seguridad en verde: incorporación completa.');
 } else {
-  console.error('Uso: onboard scan|init|check|gate [--path <proyecto>]');
+  console.error('Uso: onboard profile|scan|init|check|gate [--path <proyecto>]');
   process.exit(2);
 }

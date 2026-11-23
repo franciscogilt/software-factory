@@ -299,3 +299,24 @@ describe('gate runner with derived gates (finding 8)', () => {
     expect(state.gates.configuracion?.output).toContain('commands.test');
   });
 });
+
+describe('install gate (CI on a clean runner)', () => {
+  it('install is the first quick gate when declared', () => {
+    const g = gatesFromCommands({ install: 'pip install -r requirements.txt', test: 'pytest' });
+    expect(g.map((x) => [x.name, x.tier])).toEqual([['instalacion', 'rapida'], ['pruebas', 'completa']]);
+  });
+  it('a failed install marks the later gates as not run instead of running them', () => {
+    const node = process.execPath;
+    const root = project({ 'product.config.yaml': `commands:\n  install: ${node} -e process.exit(4)\n  test: ${node} -e require('fs').writeFileSync('ran','1')\n` });
+    const prev = process.cwd();
+    process.chdir(root);
+    try {
+      const state = runGates({ job: 'j', statePath: join(root, 's.json'), tier: 'completa', files: [] });
+      expect(state.gates.instalacion?.status).toBe('fallo');
+      expect(state.gates.pruebas).toMatchObject({ status: 'fallo', output: 'no se ejecutó: falló la instalación' });
+      expect(existsSync(join(root, 'ran'))).toBe(false);
+    } finally {
+      process.chdir(prev);
+    }
+  });
+});

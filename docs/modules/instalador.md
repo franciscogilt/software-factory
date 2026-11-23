@@ -20,7 +20,7 @@ Opciones: `--name`, `--type saas|custom` (por defecto `saas` en carpeta vacía y
 | Caso | Qué copia | Qué prepara |
 |---|---|---|
 | Carpeta vacía (nuevo) | Todo el starter kit, sin las especificaciones ni lecciones de la propia fábrica | `git init`, `product.config.yaml` (`validation: pending`), `README.md`, `.env` con secretos aleatorios (permisos 600), dependencias, base de datos (Docker o local) y migraciones |
-| Proyecto existente | Solo `CLAUDE.md`, `AGENTS.md`, `.claude/agents`, `docs/rules`, `docs/templates`, `docs/limits.md`, `scripts/`, `workflows/`, `evals/` | `product.config.yaml` (`origin: existing`, perfil y `commands:` detectados), `./factory` (atajo), herramientas en `scripts/`, `onboard init` |
+| Proyecto existente | Solo `CLAUDE.md`, `AGENTS.md`, `.claude/agents`, `docs/rules`, `docs/templates`, `docs/limits.md`, `scripts/`, `workflows/`, `evals/` | `product.config.yaml` (`origin: existing`, perfil y `commands:` detectados), `./factory` (atajo), `.github/workflows/factory.yml` (puertas en cada PR), herramientas en `scripts/`, `onboard init`. En proyectos Node, `commands:` sale de los scripts de su `package.json` |
 
 Modos de base de datos (solo producto nuevo; Postgres en ambos, SQLite descartado):
 
