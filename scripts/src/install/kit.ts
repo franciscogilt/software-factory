@@ -159,6 +159,13 @@ export interface ConfigInput {
   nodeCommands?: Record<string, string>;
 }
 
+// YAML scalar our minimal reader understands: no escapes, so pick the quote the value does not contain.
+export function yamlScalar(value: string): string {
+  if (!value.includes("'")) return `'${value}'`;
+  if (!value.includes('"')) return `"${value}"`;
+  throw new Error(`valor con comillas simples y dobles a la vez: ${value}`);
+}
+
 // The config states only what the installer knows; everything else keeps the example's questions for the owner.
 export function productConfig(i: ConfigInput): string {
   const lines = [
@@ -175,7 +182,7 @@ export function productConfig(i: ConfigInput): string {
     lines.push('origin: existing      # exige completar la incorporación antes del primer ticket', 'stack: custom');
     lines.push(`stack_profile: ${stack === 'desconocido' ? 'auto' : stack}`);
     lines.push('commands:             # revisa y corrige: son valores por defecto del perfil detectado');
-    for (const [k, v] of Object.entries(cmds)) lines.push(`  ${k}: ${JSON.stringify(v)}`);
+    for (const [k, v] of Object.entries(cmds)) lines.push(`  ${k}: ${yamlScalar(v)}`);
     if (Object.keys(cmds).length === 0) lines.push('  # sin perfil detectado: declara install, build, test, coverage (test es obligatorio)');
   }
   lines.push('work_tracker: github', 'repo_host: github', 'ci: github-actions', 'cloud: none', 'market: do', 'data_kind: personal', 'autonomy: low-first');
@@ -251,6 +258,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -272,8 +280,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      # Gradle: uses ./gradlew when the project has one; otherwise the version below.
       - if: steps.stack.outputs.profile == 'jvm'
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
       - name: Puertas
-        run: ./factory gates --base "origin/\${{ github.base_ref }}" --state .factory-state/gates.json
+        env:
+          BASE_REF: \${{ github.base_ref }}
+        run: ./factory gates --base "origin/$BASE_REF" --state .factory-state/gates.json
 `;

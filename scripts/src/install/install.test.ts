@@ -6,7 +6,7 @@ import type { Runner } from '../onboard/checks.ts';
 import { readStackConfig } from '../stack/commands.ts';
 import { localPrepare, parseDbUrl } from './database.ts';
 import { chooseDb, detectCase, doctor, MARKER, sanitizeName } from './detect.ts';
-import { FACTORY_WORKFLOW, installEnv, isSafePath, nodeCommands, listKitFiles, planCopy, productConfig, renderEnv, SECRET_FILE } from './kit.ts';
+import { yamlScalar, FACTORY_WORKFLOW, installEnv, isSafePath, nodeCommands, listKitFiles, planCopy, productConfig, renderEnv, SECRET_FILE } from './kit.ts';
 import { bootstrap, type Options } from './run.ts';
 
 function tree(files: Record<string, string>): string {
@@ -396,11 +396,26 @@ describe('CI for existing projects', () => {
     bootstrap(base(tree(KIT), target, { run: recorder().run }));
     const wf = readFileSync(join(target, '.github/workflows/factory.yml'), 'utf8');
     expect(wf).toBe(FACTORY_WORKFLOW);
-    expect(wf).toContain('origin/${{ github.base_ref }}');
+    expect(wf).toContain('BASE_REF: ${{ github.base_ref }}');
+    expect(wf).toContain('persist-credentials: false');
     expect(wf).toContain('./factory gates');
     const own = tree({ 'app.py': 'x', '.github/workflows/factory.yml': 'mio' });
     bootstrap(base(tree(KIT), own, { run: recorder().run }));
     expect(readFileSync(join(own, '.github/workflows/factory.yml'), 'utf8')).toBe('mio');
+  });
+  it('generated commands survive the round trip through the safe reader for every profile', () => {
+    for (const files of [['requirements.txt'], ['pyproject.toml'], ['Calc.sln', 'Calc/Calc.csproj'], ['pom.xml'], ['build.gradle', 'gradlew']]) {
+      const text = productConfig({ kind: 'existente', name: 'x', type: 'custom', rootFiles: files, configuredProfile: null });
+      const cfg = readStackConfig(tree({ 'product.config.yaml': text }));
+      expect(cfg.commands?.test, files.join()).toBeTruthy();
+    }
+    const dotnet = readStackConfig(tree({ 'product.config.yaml': productConfig({ kind: 'existente', name: 'x', type: 'custom', rootFiles: ['a.csproj'], configuredProfile: null }) }));
+    expect(dotnet.commands?.coverage).toBe('dotnet test --collect:"XPlat Code Coverage" --results-directory coverage');
+  });
+  it('yamlScalar never escapes', () => {
+    expect(yamlScalar('a "b"')).toBe(`'a "b"'`);
+    expect(yamlScalar("it's")).toBe(`"it's"`);
+    expect(() => yamlScalar(`'"`)).toThrow();
   });
   it('the workflow sets up the toolchain of every supported profile', () => {
     for (const p of ['python', 'dotnet', 'jvm']) expect(FACTORY_WORKFLOW).toContain(`profile == '${p}'`);

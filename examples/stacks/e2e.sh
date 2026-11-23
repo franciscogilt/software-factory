@@ -4,7 +4,9 @@
 set -euo pipefail
 fixture="${1:?uso: e2e.sh <python|dotnet|maven|gradle>}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-work="$(mktemp -d)/$fixture"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+work="$tmp/$fixture"
 cp -r "$root/examples/stacks/$fixture" "$work"
 
 git_ci() { git -c user.email=ci@factory.local -c user.name=factory-ci "$@"; }
@@ -33,12 +35,20 @@ git_ci commit -qm "instalar la fábrica"
 
 echo "== una prueba rota debe poner las puertas en rojo"
 case "$fixture" in
-  python) sed -i 's/== 5/== 6/' tests/test_calc.py ;;
-  dotnet) sed -i 's/Equal(5,/Equal(6,/' Calc.Tests/CalculatorTests.cs ;;
-  *) sed -i 's/assertEquals(5,/assertEquals(6,/' src/test/java/com/example/CalculatorTest.java ;;
+  python) file=tests/test_calc.py; from='== 5'; to='== 6' ;;
+  dotnet) file=Calc.Tests/CalculatorTests.cs; from='Equal(5,'; to='Equal(6,' ;;
+  *) file=src/test/java/com/example/CalculatorTest.java; from='assertEquals(5,'; to='assertEquals(6,' ;;
 esac
+sed -i "s/$from/$to/" "$file"
+grep -qF "$to" "$file" || { echo "✘ no se pudo romper la prueba en $file"; exit 1; }
 if ./factory gates --base HEAD --state .factory-state/gates-red.json; then
   echo "✘ las puertas quedaron en verde con una prueba rota"
   exit 1
 fi
+# It must be red for the right reason: dependencies installed fine and the test gate caught the broken test.
+node -e '
+  const g = JSON.parse(require("fs").readFileSync(".factory-state/gates-red.json", "utf8")).gates;
+  if (g.instalacion && g.instalacion.status !== "ok") { console.error("✘ falló la instalación, no la prueba"); process.exit(1); }
+  if (!g.pruebas || g.pruebas.status !== "fallo") { console.error("✘ la puerta de pruebas no detectó la prueba rota"); process.exit(1); }
+'
 echo "✓ $fixture: instalador, incorporación y puertas funcionan (verde y rojo)"
