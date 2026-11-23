@@ -108,6 +108,7 @@ export function bootstrap(o: Options): Report {
       return fail(`conexión no válida: ${(e as Error).message}`);
     }
   }
+  const hadScripts = existsSync(join(o.target, 'scripts')); // before the copy creates it
   mkdirSync(o.target, { recursive: true });
   // The marker goes first: if the process dies mid-copy, the retry still knows which case this was.
   const installedAt = marker?.installedAt ?? new Date().toISOString();
@@ -119,7 +120,7 @@ export function bootstrap(o: Options): Report {
   const rootFiles = (o.rootFiles ?? rootLevelFiles)(o.target);
   if (writeIfAbsent(o.target, 'product.config.yaml', productConfig({ kind, name, type: o.type, rootFiles: kind === 'existente' ? rootFiles : [], configuredProfile: null }))) report.done.push('product.config.yaml creado');
   else report.done.push('product.config.yaml ya existía: se conservó (revisa que tenga origin, stack_profile y commands: si es un proyecto existente)');
-  if (kind === 'existente' && existsSync(join(o.target, 'scripts')) && plan.copy.some((c) => c.to.startsWith('scripts/')) && !marker) report.done.push('aviso: tu proyecto ya tenía una carpeta scripts/; los archivos de la fábrica se añadieron junto a los tuyos');
+  if (kind === 'existente' && hadScripts && plan.copy.some((c) => c.to.startsWith('scripts/')) && !marker) report.done.push('aviso: tu proyecto ya tenía una carpeta scripts/; los archivos de la fábrica se añadieron junto a los tuyos');
 
   if (kind === 'nuevo') {
     // A new product is a new repository; no commit is made (the owner or the first PR does that).

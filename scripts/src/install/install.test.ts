@@ -260,6 +260,10 @@ describe('review fixes', () => {
     const r = bootstrap(base(tree(KIT), join(tmpdir(), `dry2-${Date.now()}`), { dryRun: true, run: recorder().run }));
     expect(r.done.length).toBeGreaterThan(3);
   });
+  it('does not warn about scripts/ when the project had none', () => {
+    const r = bootstrap(base(tree(KIT), tree({ 'app.py': 'x' }), { run: recorder().run }));
+    expect(r.done.join('\n')).not.toContain('ya tenía una carpeta scripts/');
+  });
   it('warns when scripts/ already existed and when .env is kept', () => {
     const target = tree({ 'app.py': 'x', 'scripts/deploy.sh': 'x' });
     const r = bootstrap(base(tree(KIT), target, { run: recorder().run }));
