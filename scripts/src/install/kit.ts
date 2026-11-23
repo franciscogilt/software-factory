@@ -1,6 +1,6 @@
 // What gets copied and generated. The installer only ever adds files: it never overwrites or deletes.
 import { execFileSync } from 'node:child_process';
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { effectiveCommands, resolveProfile } from '../stack/profiles.ts';
@@ -12,6 +12,11 @@ export const EXISTING_PARTS = ['CLAUDE.md', 'AGENTS.md', '.claude/agents/', 'doc
 export const NEW_EXCLUDES = ['docs/specs/', 'docs/lessons/', 'README.md', '.factory-state/'];
 // Never part of a kit, whatever lists it: local secrets and keys of whoever runs the installer.
 export const SECRET_FILE = /(^|\/)(\.env(\.(?!example$)[^/]+)?|\.npmrc|\.ssh(\/.*)?|[^/]+\.(pem|key|p12|pfx))$/;
+// Allowlist of top-level entries a kit may contain (blocklists always miss something: .aws, .netrc, *.tfvars...).
+export const KIT_TOP = new Set(['.claude', '.dockerignore', '.env.example', '.github', '.gitignore', '.gitleaks.toml', 'AGENTS.md', 'CLAUDE.md', 'README.md', 'apps', 'docs', 'evals', 'infra', 'package.json', 'packages', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'product.config.example.yaml', 'scripts', 'workflows']);
+// What the installer itself may leave at the top level of a new product.
+const GENERATED_TOP = new Set(['.git', '.env', '.factory-kit.json', '.factory-state', 'node_modules', 'product.config.yaml', 'docs']);
+export const foreignEntries = (target: string): string[] => readdirSync(target).filter((e) => !KIT_TOP.has(e) && !GENERATED_TOP.has(e) && e !== '.DS_Store');
 const WALK_IGNORE = new Set(['node_modules', '.git', '.factory-state', 'dist', '.next', 'coverage', 'test-results', 'playwright-report']);
 export const CONFLICT_RENAMES: Record<string, string> = { 'CLAUDE.md': 'CLAUDE.factory.md', 'AGENTS.md': 'AGENTS.factory.md' };
 
@@ -37,7 +42,7 @@ const inParts = (f: string, parts: string[]) => parts.some((p) => (p.endsWith('/
 
 export function listKitFiles(sourceRoot: string, kind: Exclude<Case, 'instalada'>, files: string[] = gitFiles(sourceRoot)): string[] {
   const plain = (f: string) => {
-    if (SECRET_FILE.test(f)) return false;
+    if (SECRET_FILE.test(f) || !KIT_TOP.has(f.split('/')[0]!)) return false;
     try {
       return !lstatSync(join(sourceRoot, f)).isSymbolicLink(); // a link in the kit would be copied as the content of whatever it points to
     } catch {
@@ -108,7 +113,7 @@ export function applyCopy(sourceRoot: string, target: string, plan: CopyPlan): v
     if (!isSafePath(target, to)) throw new Error(`ruta insegura (enlace simbólico en el destino): ${to}`);
     const dest = join(target, to);
     mkdirSync(dirname(dest), { recursive: true });
-    copyFileSync(join(sourceRoot, from), dest);
+    copyFileSync(join(sourceRoot, from), dest, constants.COPYFILE_EXCL); // exclusive: a link planted after the check cannot be followed
     chmodSync(dest, statSync(join(sourceRoot, from)).mode & 0o111 ? 0o755 : 0o644); // normalized: no group/other write bits
   }
 }

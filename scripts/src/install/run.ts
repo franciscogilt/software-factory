@@ -1,10 +1,10 @@
 // Installer orchestration. Pure of console and process: everything comes in through `Options`, so tests drive it with fakes.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { defaultRunner, type Runner } from '../onboard/checks.ts';
 import { detectCase, doctor, MARKER, overlapsSource, sanitizeName, type DbMode, type Problem } from './detect.ts';
 import { dockerUp, isLocalHost, localPrepare, migrate, parseDbUrl } from './database.ts';
-import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, installEnv, isSafePath, lexists, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
+import { applyCopy, FACTORY_WRAPPER, listKitFiles, planCopy, productConfig, productReadme, renderEnv, installEnv, isSafePath, lexists, foreignEntries, rootLevelFiles, writeIfAbsent, type CopyPlan } from './kit.ts';
 
 export interface Options {
   target: string;
@@ -56,6 +56,7 @@ const readMarker = (target: string): Marker | 'corrupt' | null => {
 };
 const writeMarker = (target: string, m: Marker) => {
   if (!isSafePath(target, MARKER)) throw new Error(`${MARKER} es un enlace simbólico: se rechaza`);
+  if (lexists(join(target, MARKER)) && lstatSync(join(target, MARKER)).nlink > 1) throw new Error(`${MARKER} tiene enlaces duros: se rechaza`);
   writeFileSync(join(target, MARKER), `${JSON.stringify(m, null, 2)}\n`);
 };
 
@@ -73,6 +74,10 @@ export function bootstrap(o: Options): Report {
   // An unfinished earlier run resumes by itself; a finished one is refused unless --force (which only adds what is missing).
   if (detected === 'instalada' && marker?.complete && !o.force) return fail('la fábrica ya está instalada aquí (usa --force para añadir solo lo que falte, sin sobrescribir)');
   const kind = report.kind;
+  // A marker saying "new product" is only believed while the folder holds nothing but kit files: otherwise it could be a forged marker on someone else's project.
+  if (marker && kind === 'nuevo' && foreignEntries(o.target).length > 0) {
+    return fail(`${MARKER} dice «producto nuevo», pero la carpeta tiene archivos que no son del kit (${foreignEntries(o.target).slice(0, 5).join(', ')}): bórralo si es un proyecto existente`);
+  }
 
   report.problems = doctor({ case: kind, db: o.db, run, platform: o.platform, nodeVersion: o.nodeVersion });
   if (report.problems.length > 0 && !o.dryRun) return fail(`faltan herramientas: ${report.problems.map((p) => p.tool).join(', ')}`);

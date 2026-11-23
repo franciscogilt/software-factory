@@ -41,6 +41,11 @@ Modos de base de datos (solo producto nuevo; Postgres en ambos, SQLite descartad
 
 ## Límites conocidos
 
+- El modo `docker` publica Postgres en `127.0.0.1:5432` con usuario `factory` y clave `factory` (solo desarrollo local; cualquier usuario de esa máquina puede entrar). Los secretos de la app (`AUTH_SECRET`, etc.) sí son aleatorios por producto.
+- Solo se copian entradas conocidas del kit (lista blanca); un archivo nuevo en la raíz del kit hay que añadirlo a `KIT_TOP` en `scripts/src/install/kit.ts`.
+- Carrera teórica entre comprobar y escribir (alguien creando enlaces en el destino mientras corre): la copia usa banderas exclusivas, pero no se usa escritura temporal + `rename`. Corre el instalador en carpetas que solo tú controlas.
+- Un marcador `.factory-kit.json` falso solo se detecta si la carpeta tiene archivos que no son del kit.
+
 - Windows: no probado; usar WSL.
 - El modo `docker` no se pudo probar con un demonio real (el entorno de desarrollo de la fábrica no lo tiene): solo con ejecutor simulado. Hay que verlo funcionar en tu máquina.
 - En proyectos existentes, las herramientas de `scripts/` se instalan sin lockfile (versiones `^` actuales).
