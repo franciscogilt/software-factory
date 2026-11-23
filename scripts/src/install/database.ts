@@ -30,15 +30,17 @@ export interface StepResult {
   message: string;
 }
 
-export function dockerUp(run: Runner, cwd: string, sleep: (ms: number) => void, waitMs = 90_000): StepResult {
+// Each product gets its own Compose project name: otherwise every product would share the same containers and database volume.
+export function dockerUp(run: Runner, cwd: string, sleep: (ms: number) => void, project: string, waitMs = 90_000): StepResult {
   const env = installEnv();
-  const up = run('docker', ['compose', ...COMPOSE_FILES, 'up', '-d', 'db', 'mail'], cwd, env, 300_000);
+  const compose = ['compose', '-p', project, ...COMPOSE_FILES];
+  const up = run('docker', [...compose, 'up', '-d', 'db', 'mail'], cwd, env, 300_000);
   if (up.status !== 0) return { ok: false, message: `docker compose up falló:\n${up.output}` };
   for (let waited = 0; waited <= waitMs; waited += 3000) {
-    if (run('docker', ['compose', ...COMPOSE_FILES, 'exec', '-T', 'db', 'pg_isready', '-U', 'factory'], cwd, env, 15_000).status === 0) return { ok: true, message: 'Postgres en Docker listo (puerto 5432, correo de prueba en http://localhost:8025)' };
+    if (run('docker', [...compose, 'exec', '-T', 'db', 'pg_isready', '-U', 'factory'], cwd, env, 15_000).status === 0) return { ok: true, message: 'Postgres en Docker listo (puerto 5432, correo de prueba en http://localhost:8025)' };
     sleep(3000);
   }
-  return { ok: false, message: `Postgres en Docker no estuvo listo en ${waitMs / 1000}s: revisa «docker compose ${COMPOSE_FILES.join(' ')} logs db»` };
+  return { ok: false, message: `Postgres en Docker no estuvo listo en ${waitMs / 1000}s: revisa «docker compose ${compose.slice(1).join(' ')} logs db»` };
 }
 
 const connectHelp = (d: DbUrl) =>

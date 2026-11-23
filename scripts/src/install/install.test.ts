@@ -155,7 +155,8 @@ describe('bootstrap', () => {
     const { calls, run } = recorder((cmd, args) => (args.includes('pg_isready') ? { status: ++ready < 3 ? 1 : 0 } : {}));
     const r = bootstrap(base(tree(KIT), target, { db: 'docker', run }));
     expect(r.ok, r.failed ?? '').toBe(true);
-    expect(calls).toContain('docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d db mail');
+    expect(calls).toContain(`docker compose -p ${sanitizeName(target.split('/').pop()!)} -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d db mail`);
+    expect(calls.filter((c) => c.startsWith('docker compose')).every((c) => c.includes(' -p dock_'))).toBe(true);
     expect(ready).toBe(3);
     expect(readFileSync(join(target, '.env'), 'utf8')).toContain('postgres://factory:factory@localhost:5432/factory');
   });

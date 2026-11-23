@@ -141,11 +141,12 @@ export function bootstrap(o: Options): Report {
     const install = run('pnpm', ['install', '--frozen-lockfile'], o.target, { ...installEnv(), CI: 'true' }, 900_000);
     if (install.status !== 0) return fail(`pnpm install falló:\n${install.output}`);
     report.done.push('dependencias instaladas');
-    const dbOk = step(o.db === 'docker' ? 'base de datos (Docker)' : 'base de datos (local)', () => (o.db === 'docker' ? dockerUp(run, o.target, sleep) : localPrepare(run, o.target, url)));
+    const dbOk = step(o.db === 'docker' ? 'base de datos (Docker)' : 'base de datos (local)', () => (o.db === 'docker' ? dockerUp(run, o.target, sleep, name) : localPrepare(run, o.target, url)));
     if (!dbOk || !step('migraciones', () => migrate(run, o.target, url))) return report;
     report.next = [
       `cd '${o.target.replace(/'/g, "'\\''")}'`,
       'pnpm --filter @factory/web dev   # app en http://localhost:3000',
+      ...(o.db === 'docker' ? [`docker compose -p ${name} -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d db mail   # base de datos y correo de prueba (puerto 5432: un producto a la vez)`] : []),
       'Validar el nicho (docs/discovery/) y poner validation: approved en product.config.yaml antes del primer ticket',
     ];
   } else {

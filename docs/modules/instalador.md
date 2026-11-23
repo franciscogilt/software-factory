@@ -47,6 +47,6 @@ Modos de base de datos (solo producto nuevo; Postgres en ambos, SQLite descartad
 - Un marcador `.factory-kit.json` falso solo se detecta si la carpeta tiene archivos que no son del kit.
 
 - Windows: no probado; usar WSL.
-- El modo `docker` no se pudo probar con un demonio real (el entorno de desarrollo de la fábrica no lo tiene): solo con ejecutor simulado. Hay que verlo funcionar en tu máquina.
+- Los dos modos de base de datos se prueban de verdad en cada PR (job `bootstrap` del CI, `examples/bootstrap-e2e.sh`) en Ubuntu: producto nuevo en una carpeta con espacio, base migrada, `.env` protegido y reinstalación rechazada salvo `--force`. macOS y Windows no están probados.
 - En proyectos existentes, las herramientas de `scripts/` se instalan sin lockfile (versiones `^` actuales).
 - La incorporación (`onboard check`) ejecuta código del proyecto: contenedor desechable si no es tuyo (ver `docs/modules/comandos-por-proyecto.md`).
