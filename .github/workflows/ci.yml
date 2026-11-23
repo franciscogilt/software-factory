@@ -62,6 +62,30 @@ jobs:
         with:
           gradle-version: '8.10.2'
       - run: examples/stacks/e2e.sh ${{ matrix.stack }}
+  bootstrap:
+    # The installer on a clean machine, for real: new product with Docker, and with a locally installed PostgreSQL.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [docker, local]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: PostgreSQL instalado en la máquina (modo local)
+        if: matrix.db == 'local'
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -c "create role factory login password 'factory' createdb"
+      - run: examples/bootstrap-e2e.sh ${{ matrix.db }}
   risk:
     # Classifies the PR by the files it touches and labels it. Only raises the label, never lowers it by hand.
     if: github.event_name == 'pull_request'
