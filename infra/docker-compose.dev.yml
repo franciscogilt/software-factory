@@ -1,0 +1,7 @@
+# Desarrollo en la máquina del dueño: publica Postgres y el SMTP de prueba solo en localhost para que la app (pnpm dev) los alcance.
+# Se usa junto al principal: docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d db mail
+services:
+  db:
+    ports: ["127.0.0.1:5432:5432"]
+  mail:
+    ports: ["127.0.0.1:1025:1025"]
